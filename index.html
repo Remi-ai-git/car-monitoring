@@ -6,7 +6,6 @@
 <title>CAR Monitor — Lintasarta After Sales</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -163,6 +162,10 @@ tr:hover td{background:#FAFBFE}
 .toast-ok{background:#0B7A4C;color:#fff}
 .toast-err{background:#B91C1C;color:#fff}
 @keyframes toastIn{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes livepulse{0%,100%{opacity:1}50%{opacity:.35}}
+.live-badge{display:flex;align-items:center;gap:.35rem;font-size:11px;color:rgba(255,255,255,.45);padding:.25rem .65rem;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:20px}
+.live-dot{width:7px;height:7px;border-radius:50%;background:#10B981;animation:livepulse 2s ease-in-out infinite;flex-shrink:0;transition:background .4s}
+.tg-badge{display:inline-flex;align-items:center;gap:.3rem;padding:.18rem .55rem;border-radius:20px;font-size:10.5px;font-weight:600;background:rgba(32,160,240,.15);color:#60C7F5;border:1px solid rgba(32,160,240,.25)}
 @media(max-width:768px){
   .hamburger{display:flex!important;align-items:center;justify-content:center}
   .user-chip .user-name,.user-chip .user-role-lbl{display:none}
@@ -245,6 +248,7 @@ tr:hover td{background:#FAFBFE}
       <div class="user-avatar" id="user-av">?</div>
       <div><div class="user-name" id="user-nm">&#8212;</div><div class="user-role-lbl" id="user-rl">&#8212;</div></div>
     </div>
+    <div class="live-badge" id="live-badge"><div class="live-dot" id="live-dot"></div><span id="live-lbl">LIVE</span></div>
     <button class="btn-logout" onclick="doLogout()">Keluar</button>
   </div>
 </header>
@@ -285,7 +289,7 @@ tr:hover td{background:#FAFBFE}
             <input id="f-q" class="search-input" placeholder="Cari pelanggan..." oninput="renderDeliveries()"/>
           </div>
         </div>
-        <div class="tbl-wrap"><table><thead><tr><th>Pelanggan</th><th>Jenis Report</th><th>CAR</th><th>Periode</th><th>Target Kirim</th><th>Status</th><th>Tgl Terkirim</th><th>Evidence</th><th>Aksi</th></tr></thead><tbody id="del-tbl"></tbody></table></div>
+        <div class="tbl-wrap"><table><thead><tr><th>Pelanggan</th><th>Jenis Report</th><th>CAR</th><th>Periode</th><th>Target Kirim</th><th>Status</th><th>Tgl Terkirim</th><th>Evidence</th><th>Via</th><th>Aksi</th></tr></thead><tbody id="del-tbl"></tbody></table></div>
       </div>
     </div>
     <div id="p-cars" class="hidden">
@@ -333,14 +337,28 @@ tr:hover td{background:#FAFBFE}
 
 <script>
 'use strict';
-var db=null,stor=null,cu=null;
+var db=null,cu=null,UNSUB_REALTIME=null,CURRENT_PAGE='dashboard';
 var DATA={users:[],customers:[],rtypes:[],deliveries:[]};
 var PAGES=['dashboard','deliveries','cars','customers','rtypes'];
 
+var FB_DEFAULT_CONFIG = {
+    apiKey: "AIzaSyCAh7JB8EIpHW2PcMaBuG6LUdMSSkKNOXU",
+    authDomain: "car-monitor-task.firebaseapp.com",
+    projectId: "car-monitor-task",
+    storageBucket: "car-monitor-task.firebasestorage.app",
+    messagingSenderId: "394376666164",
+    appId: "1:394376666164:web:1e2ae34c9afb6d045cfe61"
+  };
+
 (function boot(){
-  var saved=localStorage.getItem('fb_config');
-  if(saved){try{var cfg=JSON.parse(saved);initFB(cfg);fillSetup(cfg);showScr('s-login');}catch(e){showScr('s-setup');}}
-  else{showScr('s-setup');}
+  // Gunakan config hardcoded langsung, skip halaman setup
+  var saved = localStorage.getItem('fb_config');
+  var cfg;
+  if(saved){ try{ cfg = JSON.parse(saved); } catch(e){ cfg = FB_DEFAULT_CONFIG; } }
+  else { cfg = FB_DEFAULT_CONFIG; }
+  initFB(cfg);
+  fillSetup(cfg);
+  showScr('s-login');
 })();
 
 function initFB(cfg){
@@ -367,17 +385,16 @@ async function doLogin(){
   if(!uname||!pwd){setAlert('a-login','Isi username dan password','error');return;}
   var btn=gi('l-btn');btn.disabled=true;btn.textContent='Memproses...';
   try{
+    await seedIfEmpty();
     var snap=await db.collection('users').where('username','==',uname).where('password','==',pwd).limit(1).get();
     if(snap.empty){setAlert('a-login','Username atau password salah','error');return;}
     cu=Object.assign({id:snap.docs[0].id},snap.docs[0].data());
     await loadAll();
-    await seedIfEmpty();
-    await loadAll();
-    initUI();showScr('s-app');goPage('dashboard');
+    initUI();startRealtimeSync();showScr('s-app');goPage('dashboard');
   }catch(e){setAlert('a-login','Gagal terhubung: '+e.message,'error');console.error(e);}
   finally{btn.disabled=false;btn.textContent='Masuk ke Sistem';}
 }
-function doLogout(){cu=null;DATA={users:[],customers:[],rtypes:[],deliveries:[]};showScr('s-login');gi('l-user').value='';gi('l-pass').value='';}
+function doLogout(){if(UNSUB_REALTIME){UNSUB_REALTIME();UNSUB_REALTIME=null;}cu=null;DATA={users:[],customers:[],rtypes:[],deliveries:[]};showScr('s-login');gi('l-user').value='';gi('l-pass').value='';}
 
 function initUI(){
   var adm=cu.role==='admin';
@@ -414,14 +431,35 @@ async function loadAll(){
 async function reloadDels(){var s=await db.collection('report_deliveries').orderBy('created_at','desc').get();DATA.deliveries=s.docs.map(d2o);}
 function d2o(d){return Object.assign({id:d.id},d.data());}
 
+function startRealtimeSync(){
+  if(UNSUB_REALTIME)UNSUB_REALTIME();
+  UNSUB_REALTIME=db.collection('report_deliveries').orderBy('created_at','desc').onSnapshot(function(snap){
+    var prev=DATA.deliveries.length;
+    DATA.deliveries=snap.docs.map(d2o);
+    var isChange=snap.docChanges().some(function(c){return c.type!=='added'||prev>0;});
+    if(isChange){
+      if(CURRENT_PAGE==='dashboard')renderDash();
+      if(CURRENT_PAGE==='deliveries')renderDeliveries();
+      flashLive();
+    }
+  },function(err){console.warn('Realtime sync error:',err.message);});
+}
+
+function flashLive(){
+  var dot=gi('live-dot');var lbl=gi('live-lbl');
+  if(!dot)return;
+  dot.classList.add('flash');lbl.textContent='UPDATE';
+  setTimeout(function(){dot.classList.remove('flash');lbl.textContent='LIVE';},2000);
+}
+
 function res(d){
   var c=DATA.customers.find(function(x){return x.id===d.customer_id;});
   var u=DATA.users.find(function(x){return x.id===d.car_id;});
   var r=DATA.rtypes.find(function(x){return x.id===d.report_type_id;});
-  return{cname:c?c.name:'&#8212;',uname:u?u.name:'&#8212;',rname:r?r.name:'&#8212;'};
+  return{cname:c?c.name:'\u2014',uname:u?u.name:'\u2014',rname:r?r.name:'\u2014'};
 }
 
-function goPage(pg){
+function goPage(pg){CURRENT_PAGE=pg;
   PAGES.forEach(function(p){var e=gi('p-'+p);if(e)e.classList.add('hidden');var n=gi('n-'+p);if(n)n.classList.remove('active');});
   var pe=gi('p-'+pg);if(pe)pe.classList.remove('hidden');
   var ne=gi('n-'+pg);if(ne)ne.classList.add('active');
@@ -434,7 +472,7 @@ function renderDash(){
   var adm=cu.role==='admin';
   var list=adm?DATA.deliveries:DATA.deliveries.filter(function(d){return d.car_id===cu.id;});
   var tot=list.length,done=0,proc=0,late=0;
-  list.forEach(function(d){if(d.status==='Sudah Kirim')done++;else if(d.status==='Dalam Proses')proc++;if(isOD(d))late++;});
+  list.forEach(function(d){if(d.status==='Sudah Kirim'){done+=1;}else if(d.status==='Dalam Proses'){proc+=1;}if(isOD(d)){late+=1;}});
   var pct=tot?Math.round(done/tot*100):0;
   var hr=new Date().getHours();
   gi('dash-greeting').textContent=(hr<12?'Selamat Pagi':hr<17?'Selamat Siang':'Selamat Sore')+', '+cu.name.split(' ')[0]+' \uD83D\uDC4B';
@@ -459,13 +497,14 @@ function renderDeliveries(){
   gi('del-acts').innerHTML=adm?'<button class="btn btn-primary btn-sm" onclick="openDelForm(\'\')">&plus; Tambah Report</button>':'';
   var rows=list.map(function(d){
     var r=res(d);
-    var ev=d.evidence_url?'<a class="ev-link" href="'+d.evidence_url+'" target="_blank">&#128206; Lihat</a>':'<span style="color:var(--gray-b)">&#8212;</span>';
+    var ev=d.evidence_url?'<a class="ev-link" href="'+d.evidence_url+'" target="_blank">\uD83D\uDD17 Buka Link</a>':'<span style="color:var(--gray-b)">\u2014</span>';
     var acts=adm
       ?'<button class="btn btn-ghost btn-sm" onclick="openDelForm(\''+d.id+'\')">Edit</button><button class="btn btn-danger btn-sm" onclick="delDel(\''+d.id+'\')">Hapus</button>'
       :'<button class="btn btn-primary btn-sm" onclick="openUpdForm(\''+d.id+'\')">Update</button>';
-    return '<tr><td class="td-bold">'+r.cname+'</td><td>'+r.rname+'</td><td>'+r.uname+'</td><td>'+esc(d.period||'&#8212;')+'</td><td>'+fd(d.target_date)+'</td><td>'+sb(d)+'</td><td>'+fd(d.delivery_date)+'</td><td>'+ev+'</td><td><div class="row-acts">'+acts+'</div></td></tr>';
+    var via=d.updated_via==='telegram'?'<span class="tg-badge">\u2708 Telegram</span>':'<span style="font-size:11px;color:var(--text3)">Web</span>';
+    return '<tr><td class="td-bold">'+r.cname+'</td><td>'+r.rname+'</td><td>'+r.uname+'</td><td>'+esc(d.period||'\u2014')+'</td><td>'+fd(d.target_date)+'</td><td>'+sb(d)+'</td><td>'+fd(d.delivery_date)+'</td><td>'+ev+'</td><td>'+via+'</td><td><div class="row-acts">'+acts+'</div></td></tr>';
   }).join('');
-  gi('del-tbl').innerHTML=rows||er(9,'Tidak ada data untuk filter ini');
+  gi('del-tbl').innerHTML=rows||er(10,'Tidak ada data untuk filter ini');
 }
 
 function renderCars(){
@@ -507,12 +546,12 @@ function mkStSel(id,cur){
   return h+'</select>';
 }
 function mkFile(inp,nm,url){
-  var cf=url?'<div class="file-current"><a href="'+url+'" target="_blank">&#128196; File saat ini</a></div>':'';
-  return '<div class="file-drop" onclick="document.getElementById(\''+inp+'\').click()">'+
-    '<input type="file" id="'+inp+'" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xlsx" onchange="onFC(\''+inp+'\',\''+nm+'\')" />'+
-    '<div class="file-drop-txt">&#128206; Klik untuk pilih file</div>'+
-    '<div class="file-drop-sub">PDF, Word, Excel, JPG, PNG &mdash; maks 10 MB</div>'+cf+
-    '</div><div id="'+nm+'" class="file-chosen"></div>';
+  var curLink=url?'<div class="file-current"><a href="'+url+'" target="_blank">\uD83D\uDD17 Lihat link saat ini</a></div>':'';
+  return '<div class="fgroup" style="margin-bottom:0">'+
+    '<input type="url" id="'+inp+'" value="'+(url||'')+'" placeholder="https://drive.google.com/file/... atau link lainnya" style="width:100%" />'+
+    '<div class="finput-note">Tempel link Google Drive, OneDrive, Dropbox, atau URL lainnya.</div>'+
+    curLink+
+    '</div>';
 }
 
 function openDelForm(rowId){
@@ -526,7 +565,7 @@ function openDelForm(rowId){
     '<div class="fgroup"><label>Target Pengiriman *</label><input id="fd-tgt" type="date" value="'+(d?d.target_date||'':'')+'"/></div></div>'+
     '<div class="frow"><div class="fgroup"><label>Status</label>'+mkStSel('fd-st',d?d.status||'Belum Kirim':'Belum Kirim')+'</div>'+
     '<div class="fgroup"><label>Tgl Terkirim</label><input id="fd-dd" type="date" value="'+(d?d.delivery_date||'':'')+'"/></div></div>'+
-    '<div class="fgroup"><label>Evidence</label>'+mkFile('fd-file','fd-fn',d?d.evidence_url:'')+'</div>'+
+    '<div class="fgroup"><label>Evidence (Link URL)</label>'+mkFile('fd-file','fd-fn',d?d.evidence_url:'')+'</div>'+
     '<div class="fgroup"><label>Catatan</label><textarea id="fd-notes" placeholder="Catatan...">'+esc(d?d.notes||'':'')+'</textarea></div>';
   var sl=d?'Simpan Perubahan':'Tambah Report';
   openModal(d?'Edit Report SLA':'Tambah Report SLA',body,
@@ -539,8 +578,8 @@ async function saveDel(rowId){
     var cid=gi('fd-cust').value;if(!cid){toast('Pilih pelanggan','err');return;}
     var tgt=gi('fd-tgt').value;if(!tgt){toast('Target tanggal wajib diisi','err');return;}
     var oldUrl=rowId?(DATA.deliveries.find(function(x){return x.id===rowId;})||{}).evidence_url||null:null;
-    var evUrl=oldUrl;
-    var fe=gi('fd-file');if(fe&&fe.files[0]){var up=await upFile(fe.files[0]);if(up)evUrl=up;}
+    var linkEl=gi('fd-file');
+    var evUrl=(linkEl&&linkEl.value.trim())?linkEl.value.trim():oldUrl;
     var p={customer_id:cid,car_id:gi('fd-car').value||null,report_type_id:gi('fd-rt').value||null,period:gi('fd-per').value.trim()||null,target_date:tgt,status:gi('fd-st').value,delivery_date:gi('fd-dd').value||null,notes:gi('fd-notes').value.trim()||null,evidence_url:evUrl,updated_at:now()};
     if(rowId){await db.collection('report_deliveries').doc(rowId).update(p);}
     else{p.created_at=now();await db.collection('report_deliveries').add(p);}
@@ -560,12 +599,12 @@ function openUpdForm(rowId){
   var d=DATA.deliveries.find(function(x){return x.id===rowId;});if(!d)return;
   var r=res(d);
   var body=
-    '<div class="delivery-info"><div class="delivery-info-title">'+r.cname+'</div><div class="delivery-info-row">Periode: <strong>'+esc(d.period||'&#8212;')+'</strong> &nbsp;&middot;&nbsp; CAR: <strong>'+r.uname+'</strong></div></div>'+
-    '<div class="fgroup"><label>Jenis Report</label>'+mkSel('fu-rt',DATA.rtypes,d.report_type_id||','-- Pilih --')+'</div>'+
+    '<div class="delivery-info"><div class="delivery-info-title">'+r.cname+'</div><div class="delivery-info-row">Periode: <strong>'+esc(d.period||'\u2014')+'</strong> &nbsp;&middot;&nbsp; CAR: <strong>'+r.uname+'</strong></div></div>'+
+    '<div class="fgroup"><label>Jenis Report</label>'+mkSel('fu-rt',DATA.rtypes,d.report_type_id||'','-- Pilih --')+'</div>'+
     '<div class="fgroup"><label>Target Pengiriman</label><input id="fu-tgt" type="date" value="'+(d.target_date||'')+'"/></div>'+
     '<div class="fgroup"><label>Status Pengiriman</label>'+mkStSel('fu-st',d.status||'Belum Kirim')+'</div>'+
     '<div class="fgroup"><label>Tgl Pengiriman Aktual</label><input id="fu-dd" type="date" value="'+(d.delivery_date||'')+'"/></div>'+
-    '<div class="fgroup"><label>Evidence</label>'+mkFile('fu-file','fu-fn',d.evidence_url)+'</div>'+
+    '<div class="fgroup"><label>Evidence (Link URL)</label>'+mkFile('fu-file','fu-fn',d.evidence_url)+'</div>'+
     '<div class="fgroup"><label>Catatan</label><textarea id="fu-notes" placeholder="Catatan...">'+esc(d.notes||'')+'</textarea></div>';
   openModal('Update Status Report',body,
     '<button class="btn btn-ghost" onclick="closeModal()">Batal</button><button class="btn btn-primary" id="mu-save" onclick="saveUpd(\''+rowId+'\')">Simpan Update</button>');
@@ -575,8 +614,8 @@ async function saveUpd(rowId){
   var d=DATA.deliveries.find(function(x){return x.id===rowId;});
   var btn=gi('mu-save');btn.disabled=true;btn.textContent='Menyimpan...';
   try{
-    var evUrl=d?d.evidence_url||null:null;
-    var fe=gi('fu-file');if(fe&&fe.files[0]){var up=await upFile(fe.files[0]);if(up)evUrl=up;}
+    var linkEl=gi('fu-file');
+    var evUrl=(linkEl&&linkEl.value.trim())?linkEl.value.trim():(d?d.evidence_url||null:null);
     var p={report_type_id:gi('fu-rt').value||(d?d.report_type_id:null),target_date:gi('fu-tgt').value||null,status:gi('fu-st').value,delivery_date:gi('fu-dd').value||null,notes:gi('fu-notes').value.trim()||null,evidence_url:evUrl,updated_at:now()};
     await db.collection('report_deliveries').doc(rowId).update(p);
     closeModal();await reloadDels();renderDeliveries();renderDash();toast('Status berhasil diperbarui');
@@ -586,7 +625,7 @@ async function saveUpd(rowId){
 
 function openCarForm(uid){
   var u=uid?DATA.users.find(function(x){return x.id===uid;}):null;
-  var sw=(u&&u.id===cu.id)?'<div class="alert alert-warn" style="margin-top:.75rem">&#9888; Anda mengedit akun sendiri.</div>':'';
+  var sw=(u&&u.id===cu.id)?'<div class="alert alert-warn" style="margin-top:.75rem">\u26A0 Anda mengedit akun sendiri.</div>':'';
   var body=
     '<div class="frow"><div class="fgroup"><label>Nama Lengkap *</label><input id="fc-nm" type="text" value="'+esc(u?u.name:'').replace(/"/g,'&quot;')+'" placeholder="Nama lengkap"/></div>'+
     '<div class="fgroup"><label>Username *</label><input id="fc-un" type="text" value="'+esc(u?u.username:'').replace(/"/g,'&quot;')+'" placeholder="username" autocomplete="off"/></div></div>'+
@@ -668,36 +707,22 @@ async function delRtype(rid){
   catch(e){toast('Gagal: '+e.message,'err');}
 }
 
-async function upFile(file){
-  try{
-    if(file.size>10*1024*1024){toast('File terlalu besar, maks 10 MB','err');return null;}
-    var ext=file.name.split('.').pop().toLowerCase();
-    var path='evidence/'+Date.now()+'_'+Math.random().toString(36).slice(2)+'.'+ext;
-    var ref=stor.ref(path);
-    await ref.put(file,{contentType:file.type});
-    return await ref.getDownloadURL();
-  }catch(e){console.error('Upload:',e);toast('Upload gagal: '+e.message,'err');return null;}
-}
-function onFC(inp,nm){var f=gi(inp)?gi(inp).files[0]:null;if(f)gi(nm).textContent='\u2713 '+f.name+' ('+fmtSz(f.size)+')';}
-function fmtSz(b){return b>1048576?(b/1048576).toFixed(1)+' MB':Math.round(b/1024)+' KB';}
+// Storage upload dihapus \u2014 Evidence menggunakan link URL
+
 
 var FSRULES="rules_version = '2';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /{document=**} {\n      allow read, write: if true;\n    }\n  }\n}";
-var STRULES="rules_version = '2';\nservice firebase.storage {\n  match /b/{bucket}/o {\n    match /{allPaths=**} {\n      allow read, write: if true;\n    }\n  }\n}";
 
 function showFirebaseGuide(){
   var body=
-    '<div class="alert alert-info">Ikuti 5 langkah berikut untuk menyiapkan Firebase project.</div>'+
+    '<div class="alert alert-info">Ikuti langkah berikut untuk menyiapkan Firebase project.</div>'+
     '<div class="step-row"><div class="step-num">1</div><div class="step-txt">Buka <strong><a href="https://console.firebase.google.com" target="_blank" style="color:var(--primary)">console.firebase.google.com</a></strong> &rarr; <strong>Add project</strong> &rarr; beri nama project &rarr; klik Continue hingga selesai.</div></div>'+
-    '<div class="step-row"><div class="step-num">2</div><div class="step-txt">Di sidebar &rarr; <strong>Build &rarr; Firestore Database</strong> &rarr; <strong>Create database</strong> &rarr; pilih region (asia-southeast2 untuk Jakarta) &rarr; <strong>Start in test mode</strong> &rarr; Enable.</div></div>'+
-    '<div class="step-row"><div class="step-num">3</div><div class="step-txt">Di sidebar &rarr; <strong>Build &rarr; Storage</strong> &rarr; <strong>Get started</strong> &rarr; <strong>Start in test mode</strong> &rarr; Next &rarr; Done.</div></div>'+
+    '<div class="step-row"><div class="step-num">2</div><div class="step-txt">Di sidebar &rarr; <strong>Build &rarr; Firestore Database</strong> &rarr; <strong>Create database</strong> &rarr; pilih region <strong>asia-southeast2</strong> (Jakarta) &rarr; pilih <strong>Production mode</strong> &rarr; Enable.</div></div>'+
+    '<div class="step-row"><div class="step-num">3</div><div class="step-txt">Di tab <strong>Rules</strong> Firestore, ganti rules dengan <strong>allow read, write: if true</strong> lalu klik Publish.</div></div>'+
     '<div class="step-row"><div class="step-num">4</div><div class="step-txt">Di sidebar &rarr; <strong>Project Settings</strong> (ikon gear) &rarr; scroll ke <strong>Your apps</strong> &rarr; klik ikon <span class="step-code">&lt;/&gt;</span> (Web) &rarr; daftarkan app &rarr; copy 6 nilai konfigurasi ke form Setup.</div></div>'+
     '<div class="step-row"><div class="step-num">5</div><div class="step-txt">Login pertama: username <span class="step-code">admin</span> &middot; password <span class="step-code">Admin@123</span> &mdash; sistem otomatis membuat akun admin dan jenis report default.</div></div>'+
-    '<div style="display:flex;align-items:center;justify-content:space-between;margin:.85rem 0 .4rem"><span style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em">Firestore Rules (opsional, test mode)</span>'+
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin:.85rem 0 .4rem"><span style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em">Firestore Rules</span>'+
     '<button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById(\'fb-fsr\').textContent).then(function(){toast(\'Disalin!\')})">Copy</button></div>'+
-    '<div class="code-box" id="fb-fsr">'+FSRULES+'</div>'+
-    '<div style="display:flex;align-items:center;justify-content:space-between;margin:.85rem 0 .4rem"><span style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em">Storage Rules (opsional, test mode)</span>'+
-    '<button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById(\'fb-str\').textContent).then(function(){toast(\'Disalin!\')})">Copy</button></div>'+
-    '<div class="code-box" id="fb-str">'+STRULES+'</div>';
+    '<div class="code-box" id="fb-fsr">'+FSRULES+'</div>';
   openModal('Panduan Setup Firebase',body,'<button class="btn btn-primary" onclick="closeModal()">Mengerti, Tutup</button>');
 }
 
@@ -720,8 +745,8 @@ function toast(msg,type){
 function gi(s){return document.getElementById(s);}
 function gv(s){var e=gi(s);return e?e.value.trim():'';}
 function sv(s,v){var e=gi(s);if(e)e.value=v;}
-function esc(s){return String(s||'').replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-function fd(dt){if(!dt)return '&#8212;';try{return new Date(dt).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});}catch(e){return dt;}}
+function esc(s){var m={'&':'&amp;','<':'&lt;','>':'&gt;','\x22':'&quot;','\x27':'&#39;'};return String(s||'').replace(/[&<>\"']/g,function(c){return m[c]||c;});}
+function fd(dt){if(!dt)return '\u2014';try{return new Date(dt).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});}catch(e){return dt;}}
 function er(c,m){return '<tr class="empty-row"><td colspan="'+c+'">'+m+'</td></tr>';}
 function now(){return new Date().toISOString();}
 function isOD(d){return d.status!=='Sudah Kirim'&&d.target_date&&new Date(d.target_date)<new Date();}
