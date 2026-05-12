@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COR Monitor — Customer Operation Regional</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --primary:#1B4FD8;--primary-dark:#1540B8;--primary-light:#EEF2FF;
+  --surface:#FFFFFF;--bg:#F4F6FA;--bg2:#EAECF2;
+  --border:#DFE3EE;--border2:#C8CDDD;
+  --text:#1A1F36;--text2:#4B5280;--text3:#8A92B4;
+  --green:#0B7A4C;--green-bg:#E6F6EF;--green-b:#A3D9C1;
+  --blue:#1559D9;--blue-bg:#EEF3FF;--blue-b:#B3C8FF;
+  --red:#C0392B;--red-bg:#FEF0EE;--red-b:#F5B4AD;
+  --amber:#B45309;--amber-bg:#FFF9EC;--amber-b:#FDE68A;
+  --gray-bg:#F1F3F9;--gray-b:#CBD5E1;
+  --purple:#6B21A8;--purple-bg:#F5F0FF;--purple-b:#C4B5FD;
+  --shadow:0 1px 3px rgba(26,31,54,.08),0 4px 12px rgba(26,31,54,.04);
+  --shadow-lg:0 8px 32px rgba(26,31,54,.14);
+  --radius:10px;--radius-lg:14px;--radius-xl:20px;
+  --font:'Plus Jakarta Sans',system-ui,sans-serif;
+  --mono:'DM Mono',monospace;
+  --sidebar-w:240px;--header-h:58px;
+}
+html,body{height:100%;background:var(--bg);font-family:var(--font);color:var(--text);font-size:14px;line-height:1.5}
+input,select,textarea,button{font-family:inherit;font-size:14px}
+.hidden{display:none!important}
+
+/* AUTH */
+.auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem;
+  background:#0A1628;background-image:radial-gradient(ellipse at 20% 50%,rgba(27,79,216,.25) 0%,transparent 60%),radial-gradient(ellipse at 80% 20%,rgba(99,102,241,.15) 0%,transparent 50%)}
+.auth-card{background:var(--surface);border-radius:var(--radius-xl);padding:2.25rem 2rem;width:100%;max-width:480px;box-shadow:var(--shadow-lg)}
+.brand{display:flex;align-items:center;gap:12px;margin-bottom:2rem}
+.brand-icon{width:44px;height:44px;background:var(--primary);border-radius:12px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:600;font-size:13px;color:#fff;flex-shrink:0;letter-spacing:-.5px}
+.brand-name{font-size:17px;font-weight:700;color:var(--text);line-height:1.2}
+.brand-tag{font-size:11px;color:var(--text3);margin-top:1px}
+.auth-heading{font-size:22px;font-weight:700;color:var(--text);margin-bottom:.35rem}
+.auth-sub{font-size:13px;color:var(--text2);margin-bottom:1.75rem;line-height:1.6}
+.auth-footer{text-align:center;margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)}
+
+/* FORMS */
+.fgroup{margin-bottom:1rem}
+.fgroup label{display:block;font-size:11.5px;font-weight:600;color:var(--text2);margin-bottom:.4rem;letter-spacing:.03em;text-transform:uppercase}
+.fgroup input,.fgroup select,.fgroup textarea{width:100%;padding:.6rem .9rem;border:1.5px solid var(--border);border-radius:var(--radius);font-size:14px;color:var(--text);background:var(--surface);outline:none;transition:border-color .15s,box-shadow .15s}
+.fgroup input:focus,.fgroup select:focus,.fgroup textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(27,79,216,.1)}
+.fgroup textarea{resize:vertical;min-height:76px;line-height:1.5}
+.fgroup select{cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238A92B4' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .75rem center;padding-right:2.25rem}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.finput-note{font-size:11px;color:var(--text3);margin-top:.3rem}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.6rem 1.2rem;border-radius:var(--radius);border:1.5px solid transparent;font-size:13.5px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+.btn-primary:hover:not(:disabled){background:var(--primary-dark)}
+.btn-ghost{background:transparent;color:var(--text2);border-color:var(--border)}
+.btn-ghost:hover:not(:disabled){background:var(--bg);border-color:var(--border2);color:var(--text)}
+.btn-danger{background:var(--red-bg);color:var(--red);border-color:var(--red-b)}
+.btn-danger:hover:not(:disabled){background:#FBDBD8}
+.btn-success{background:var(--green-bg);color:var(--green);border-color:var(--green-b)}
+.btn-full{width:100%}
+.btn-sm{padding:.38rem .85rem;font-size:12.5px;border-radius:8px}
+
+/* APP SHELL */
+.app-shell{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+.app-topbar{height:var(--header-h);background:var(--text);display:flex;align-items:center;justify-content:space-between;padding:0 1.25rem;flex-shrink:0;z-index:100}
+.topbar-left{display:flex;align-items:center;gap:.85rem}
+.topbar-brand{display:flex;align-items:center;gap:10px}
+.topbar-icon{width:34px;height:34px;background:var(--primary);border-radius:9px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;font-weight:600;color:#fff;flex-shrink:0;letter-spacing:-.5px}
+.topbar-title{font-size:14px;font-weight:700;color:#fff;line-height:1.1}
+.topbar-sub{font-size:10.5px;color:rgba(255,255,255,.4);margin-top:1px}
+.topbar-right{display:flex;align-items:center;gap:.75rem}
+.user-chip{display:flex;align-items:center;gap:.5rem;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:.3rem .75rem .3rem .4rem}
+.user-avatar{width:26px;height:26px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+.user-name{font-size:12.5px;font-weight:600;color:rgba(255,255,255,.85)}
+.user-role-lbl{font-size:10px;color:rgba(255,255,255,.4)}
+.btn-logout{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.6);border-radius:8px;padding:.35rem .85rem;font-size:12.5px;font-weight:500;cursor:pointer;transition:all .15s}
+.btn-logout:hover{background:rgba(255,255,255,.14);color:#fff}
+.hamburger{background:none;border:none;color:rgba(255,255,255,.7);cursor:pointer;padding:.35rem;display:none;font-size:22px;line-height:1}
+.live-badge{display:flex;align-items:center;gap:.35rem;font-size:11px;color:rgba(255,255,255,.45);padding:.25rem .65rem;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:20px}
+.live-dot{width:7px;height:7px;border-radius:50%;background:#10B981;flex-shrink:0}
+@keyframes livepulse{0%,100%{opacity:1}50%{opacity:.35}}
+.live-dot{animation:livepulse 2s ease-in-out infinite}
+.live-dot.flash{background:#60A5FA;animation:none}
+
+.app-body{display:flex;flex:1;overflow:hidden}
+
+/* SIDEBAR */
+#sidebar{width:var(--sidebar-w);background:#0F1A2E;flex-shrink:0;display:flex;flex-direction:column;overflow-y:auto;border-right:1px solid rgba(255,255,255,.04);transition:transform .25s cubic-bezier(.4,0,.2,1);position:relative;z-index:50}
+.sb-section{padding:.85rem .9rem .3rem;font-size:10.5px;font-weight:700;color:rgba(255,255,255,.2);text-transform:uppercase;letter-spacing:.1em}
+.nav-item{display:flex;align-items:center;gap:.65rem;padding:.55rem .9rem;margin:.05rem .5rem;border-radius:9px;cursor:pointer;color:rgba(255,255,255,.45);font-size:13.5px;font-weight:500;transition:all .15s;user-select:none}
+.nav-item:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.8)}
+.nav-item.active{background:rgba(27,79,216,.35);color:#fff;font-weight:600}
+.nav-item.active .nav-dot{background:#60A5FA}
+.nav-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.15);flex-shrink:0}
+.sb-badge{margin-left:auto;background:var(--red);color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:.1rem .45rem;min-width:18px;text-align:center}
+.sb-spacer{flex:1}
+.sb-footer{padding:.75rem .5rem;border-top:1px solid rgba(255,255,255,.06)}
+.sb-user{padding:.45rem .9rem;font-size:12px;color:rgba(255,255,255,.3);display:flex;align-items:center;gap:.65rem}
+
+/* CONTENT */
+#content{flex:1;overflow-y:auto;background:var(--bg);padding:1.5rem}
+.sb-overlay{display:none;position:fixed;inset:0;top:var(--header-h);background:rgba(0,0,0,.5);z-index:49}
+
+/* PAGE */
+.pg-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.5rem;gap:1rem;flex-wrap:wrap}
+.pg-title{font-size:20px;font-weight:700;color:var(--text)}
+.pg-sub{font-size:13px;color:var(--text3);margin-top:.2rem}
+.pg-actions{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+
+/* STATS */
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.85rem;margin-bottom:1.5rem}
+.stat-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.25rem}
+.stat-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em}
+.stat-val{font-size:28px;font-weight:700;color:var(--text);margin:.15rem 0 .2rem;line-height:1}
+.stat-hint{font-size:11.5px;color:var(--text3)}
+.stat-card.s-green .stat-val{color:var(--green)}
+.stat-card.s-blue .stat-val{color:var(--blue)}
+.stat-card.s-red .stat-val{color:var(--red)}
+.stat-card.s-amber .stat-val{color:var(--amber)}
+.progress-row{display:flex;align-items:center;gap:.65rem;margin-top:.35rem}
+.progress-bar{flex:1;height:5px;background:var(--bg2);border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;border-radius:3px;transition:width .4s;background:var(--primary)}
+.progress-pct{font-size:11px;color:var(--text3);font-weight:600;min-width:32px;text-align:right}
+
+/* CARD */
+.card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow)}
+.card-head{padding:.9rem 1.25rem;border-bottom:1.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap}
+.card-title{font-size:14px;font-weight:700;color:var(--text)}
+.card-tools{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.search-input{padding:.45rem .85rem;border:1.5px solid var(--border);border-radius:8px;font-size:13px;color:var(--text);background:var(--bg);outline:none;transition:border-color .15s;width:200px}
+.search-input:focus{border-color:var(--primary);background:var(--surface)}
+.filter-select{padding:.45rem .85rem;border:1.5px solid var(--border);border-radius:8px;font-size:13px;color:var(--text);background:var(--bg);outline:none;cursor:pointer;width:155px;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238A92B4' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .65rem center;padding-right:2rem}
+
+/* VIEW TOGGLE */
+.view-toggle{display:flex;background:var(--bg2);border-radius:8px;padding:2px;gap:2px}
+.view-btn{padding:.3rem .7rem;border-radius:6px;border:none;background:transparent;font-size:12px;font-weight:500;color:var(--text3);cursor:pointer;transition:all .15s}
+.view-btn.active{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+
+/* TABLE */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+thead{background:var(--bg)}
+th{padding:.6rem 1rem;text-align:left;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;border-bottom:1.5px solid var(--border)}
+td{padding:.7rem 1rem;border-top:1px solid var(--border);font-size:13px;color:var(--text2);vertical-align:middle}
+tr:hover td{background:#FAFBFE}
+.td-bold{font-weight:600;color:var(--text)}
+.empty-row td{text-align:center;padding:2.5rem;color:var(--text3);font-size:13px}
+.row-acts{display:flex;gap:.35rem;flex-wrap:wrap}
+
+/* KANBAN */
+.kanban-board{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;padding:1.25rem;overflow-x:auto}
+.kanban-col{background:var(--bg);border-radius:var(--radius-lg);min-height:200px}
+.kanban-col-head{padding:.75rem 1rem;font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid var(--border)}
+.kanban-col-head .k-count{background:var(--border2);color:var(--text3);border-radius:10px;font-size:11px;font-weight:700;padding:.1rem .5rem}
+.kanban-cards{padding:.75rem;display:flex;flex-direction:column;gap:.6rem;min-height:100px}
+.k-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:.8rem 1rem;cursor:pointer;transition:all .15s;box-shadow:var(--shadow)}
+.k-card:hover{border-color:var(--primary);box-shadow:0 4px 12px rgba(27,79,216,.1);transform:translateY(-1px)}
+.k-card-cust{font-size:13px;font-weight:600;color:var(--text);margin-bottom:.3rem}
+.k-card-report{font-size:11.5px;color:var(--text3);margin-bottom:.5rem}
+.k-card-footer{display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap}
+.k-card-car{font-size:11px;color:var(--text3);display:flex;align-items:center;gap:.3rem}
+.k-avatar{width:18px;height:18px;border-radius:50%;background:var(--primary);display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;flex-shrink:0}
+.k-date{font-size:11px;font-weight:600}
+.k-date.overdue{color:var(--red)}
+.k-date.soon{color:var(--amber)}
+.k-date.ok{color:var(--text3)}
+
+/* PRIORITY */
+.priority{display:inline-flex;align-items:center;gap:.25rem;font-size:10.5px;font-weight:600;padding:.15rem .55rem;border-radius:20px}
+.priority-high{background:#FEF0EE;color:var(--red);border:1px solid var(--red-b)}
+.priority-med{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-b)}
+.priority-low{background:var(--green-bg);color:var(--green);border:1px solid var(--green-b)}
+
+/* HEALTH SCORE */
+.health-bar{display:flex;align-items:center;gap:.5rem}
+.health-dots{display:flex;gap:2px}
+.h-dot{width:8px;height:8px;border-radius:50%}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;gap:.3rem;padding:.22rem .7rem;border-radius:20px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.badge-green{background:var(--green-bg);color:var(--green);border:1px solid var(--green-b)}
+.badge-blue{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-b)}
+.badge-red{background:var(--red-bg);color:var(--red);border:1px solid var(--red-b)}
+.badge-amber{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-b)}
+.badge-gray{background:var(--gray-bg);color:var(--text2);border:1px solid var(--gray-b)}
+.badge-purple{background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-b)}
+.badge-blue2{background:#EFF6FF;color:#1E40AF;border:1px solid #BFDBFE}
+.tg-badge{display:inline-flex;align-items:center;gap:.3rem;padding:.18rem .55rem;border-radius:20px;font-size:10.5px;font-weight:600;background:rgba(32,160,240,.12);color:#0EA5E9;border:1px solid rgba(32,160,240,.25)}
+
+/* MODAL */
+#modal-bg{position:fixed;inset:0;background:rgba(10,18,40,.55);z-index:600;display:flex;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(3px)}
+.modal{background:var(--surface);border-radius:var(--radius-xl);width:100%;max-width:580px;max-height:92vh;overflow-y:auto;box-shadow:var(--shadow-lg)}
+.modal-head{padding:1.25rem 1.5rem;border-bottom:1.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--surface);z-index:1}
+.modal-htitle{font-size:16px;font-weight:700;color:var(--text)}
+.modal-x{background:var(--bg);border:1.5px solid var(--border);color:var(--text3);border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+.modal-x:hover{background:var(--border);color:var(--text)}
+.modal-body{padding:1.25rem 1.5rem}
+.modal-foot{padding:1rem 1.5rem;border-top:1.5px solid var(--border);display:flex;justify-content:flex-end;gap:.6rem;background:var(--bg);border-radius:0 0 var(--radius-xl) var(--radius-xl)}
+
+/* ALERTS */
+.alert{padding:.75rem 1rem;border-radius:var(--radius);font-size:13px;margin-bottom:1rem;display:flex;align-items:flex-start;gap:.6rem;border:1.5px solid transparent}
+.alert-error{background:var(--red-bg);color:var(--red);border-color:var(--red-b)}
+.alert-success{background:var(--green-bg);color:var(--green);border-color:var(--green-b)}
+.alert-info{background:var(--blue-bg);color:var(--blue);border-color:var(--blue-b)}
+.alert-warn{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-b)}
+
+/* ACTIVITY LOG */
+.activity-list{list-style:none;padding:0}
+.activity-item{display:flex;gap:.75rem;padding:.65rem 0;border-bottom:1px solid var(--border)}
+.activity-item:last-child{border-bottom:none}
+.act-dot{width:8px;height:8px;border-radius:50%;background:var(--primary);flex-shrink:0;margin-top:5px}
+.act-text{font-size:12.5px;color:var(--text2);line-height:1.5}
+.act-time{font-size:11px;color:var(--text3);margin-top:2px}
+
+/* DELIVERY INFO */
+.delivery-info{background:var(--bg);border:1.5px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;margin-bottom:1.1rem}
+.delivery-info-title{font-size:13.5px;font-weight:600;color:var(--text);margin-bottom:.25rem}
+.delivery-info-row{font-size:12.5px;color:var(--text2)}
+
+/* EVIDENCE LINK */
+.ev-link{color:var(--primary);text-decoration:none;font-size:12.5px;font-weight:500}
+.ev-link:hover{text-decoration:underline}
+
+/* FIREBASE GUIDE */
+.code-box{background:#0A1628;color:#93C5FD;padding:1rem;border-radius:var(--radius);font-family:var(--mono);font-size:11.5px;overflow:auto;white-space:pre;line-height:1.65;max-height:200px}
+.copy-btn{padding:.35rem .75rem;font-size:12px;border:1.5px solid rgba(255,255,255,.15);border-radius:7px;background:rgba(255,255,255,.08);color:#93C5FD;cursor:pointer;transition:all .15s;font-family:inherit}
+.copy-btn:hover{background:rgba(255,255,255,.16);color:#fff}
+.step-row{display:flex;gap:.75rem;margin-bottom:.85rem;align-items:flex-start}
+.step-num{width:24px;height:24px;min-width:24px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:700}
+.step-txt{font-size:13px;color:var(--text2);line-height:1.55;padding-top:2px}
+.step-code{font-family:var(--mono);font-size:12px;background:var(--bg);padding:.1rem .4rem;border-radius:5px;border:1px solid var(--border)}
+
+/* TOAST */
+#toast-area{position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;pointer-events:none;display:flex;flex-direction:column;gap:.5rem;align-items:flex-end}
+.toast{padding:.7rem 1.1rem .7rem .85rem;border-radius:var(--radius);font-size:13px;font-weight:500;display:flex;align-items:center;gap:.5rem;box-shadow:var(--shadow-lg);animation:toastIn .25s ease;pointer-events:all;max-width:320px}
+.toast-ok{background:#0B7A4C;color:#fff}
+.toast-err{background:#B91C1C;color:#fff}
+@keyframes toastIn{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  .hamburger{display:flex!important;align-items:center;justify-content:center}
+  .user-chip .user-name,.user-chip .user-role-lbl{display:none}
+  #sidebar{position:fixed;left:0;top:var(--header-h);bottom:0;transform:translateX(-110%);z-index:200}
+  #sidebar.open{transform:none}
+  .sb-overlay.show{display:block!important}
+  #content{padding:1rem}
+  .stats-row{grid-template-columns:1fr 1fr}
+  .search-input,.filter-select{width:100%}
+  .frow{grid-template-columns:1fr}
+  .pg-header{flex-direction:column;align-items:stretch}
+  .modal{margin:.5rem;max-height:96vh}
+  .kanban-board{grid-template-columns:repeat(2,minmax(220px,1fr))}
+  .live-badge span{display:none}
+}
+</style>
+</head>
+<body>
+
+<div id="toast-area"></div>
+
+<!-- LOGIN -->
+<div id="s-login">
+<div class="auth-wrap"><div class="auth-card">
+  <div class="brand">
+    <div class="brand-icon">COR</div>
+    <div>
+      <div class="brand-name">Customer Operation Regional</div>
+      <div class="brand-tag">CAR Monitor &middot; After Sales</div>
+    </div>
+  </div>
+  <div class="auth-heading">Masuk ke Sistem</div>
+  <div class="auth-sub">Gunakan username dan password yang diberikan administrator.</div>
+  <div id="a-login"></div>
+  <div class="fgroup"><label>Username</label><input id="l-user" type="text" placeholder="username" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+  <div class="fgroup"><label>Password</label><input id="l-pass" type="password" placeholder="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+  <button class="btn btn-primary btn-full" id="l-btn" onclick="doLogin()">Masuk ke Sistem</button>
+  <div class="auth-footer">
+    <button onclick="showSetup()" style="background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;font-family:inherit">&#9881; Ubah Konfigurasi Firebase</button>
+  </div>
+</div></div>
+</div>
+
+<!-- SETUP (hidden by default) -->
+<div id="s-setup" class="hidden">
+<div class="auth-wrap"><div class="auth-card">
+  <div class="brand">
+    <div class="brand-icon">COR</div>
+    <div><div class="brand-name">Customer Operation Regional</div><div class="brand-tag">Konfigurasi Firebase</div></div>
+  </div>
+  <div class="auth-heading">Konfigurasi Firebase</div>
+  <div class="auth-sub">Masukkan konfigurasi dari Firebase Console &rarr; Project Settings &rarr; SDK setup.</div>
+  <div id="a-setup"></div>
+  <div class="frow">
+    <div class="fgroup"><label>API Key</label><input id="fb-apikey" type="text" placeholder="AIzaSy..." autocomplete="off"/></div>
+    <div class="fgroup"><label>Project ID</label><input id="fb-projectid" type="text" placeholder="project-id" autocomplete="off"/></div>
+  </div>
+  <div class="frow">
+    <div class="fgroup"><label>Auth Domain</label><input id="fb-authdomain" type="text" placeholder="project.firebaseapp.com" autocomplete="off"/></div>
+    <div class="fgroup"><label>Storage Bucket</label><input id="fb-storagebucket" type="text" placeholder="project.appspot.com" autocomplete="off"/></div>
+  </div>
+  <div class="frow">
+    <div class="fgroup"><label>Messaging Sender ID</label><input id="fb-msgid" type="text" placeholder="123456789" autocomplete="off"/></div>
+    <div class="fgroup"><label>App ID</label><input id="fb-appid" type="text" placeholder="1:123:web:abc..." autocomplete="off"/></div>
+  </div>
+  <button class="btn btn-primary btn-full" onclick="doSetup()" style="margin-top:.25rem">Simpan &amp; Lanjutkan &rarr;</button>
+  <div class="auth-footer">
+    <button onclick="showScr('s-login')" style="background:none;border:none;color:var(--text3);font-size:12.5px;cursor:pointer;font-family:inherit">&larr; Kembali ke Login</button>
+  </div>
+</div></div>
+</div>
+
+<!-- APP -->
+<div id="s-app" class="hidden app-shell">
+<div id="sb-overlay" class="sb-overlay" onclick="closeSB()"></div>
+<header class="app-topbar">
+  <div class="topbar-left">
+    <button class="hamburger" id="ham-btn" onclick="toggleSB()">&#9776;</button>
+    <div class="topbar-brand">
+      <div class="topbar-icon">COR</div>
+      <div><div class="topbar-title">Customer Operation Regional</div><div class="topbar-sub">CAR Monitor &middot; After Sales</div></div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="live-badge" id="live-badge"><div class="live-dot" id="live-dot"></div><span id="live-lbl">LIVE</span></div>
+    <div class="user-chip">
+      <div class="user-avatar" id="user-av">?</div>
+      <div><div class="user-name" id="user-nm">-</div><div class="user-role-lbl" id="user-rl">-</div></div>
+    </div>
+    <button class="btn-logout" onclick="doLogout()">Keluar</button>
+  </div>
+</header>
+<div class="app-body">
+  <aside id="sidebar">
+    <div class="sb-section">Utama</div>
+    <div class="nav-item" id="n-dashboard" onclick="goPage('dashboard')"><span class="nav-dot"></span> Dashboard</div>
+    <div class="nav-item" id="n-deliveries" onclick="goPage('deliveries')"><span class="nav-dot"></span> Report SLA <span class="sb-badge hidden" id="badge-late">0</span></div>
+    <div class="nav-item" id="n-tasks" onclick="goPage('tasks')"><span class="nav-dot"></span> Aktivitas CAR</div>
+    <div class="nav-item" id="n-rtypes" onclick="goPage('rtypes')"><span class="nav-dot"></span> Jenis Laporan</div>
+    <div class="sb-section admin-only">Manajemen</div>
+    <div class="nav-item admin-only" id="n-cars" onclick="goPage('cars')"><span class="nav-dot"></span> Kelola CAR</div>
+    <div class="nav-item admin-only" id="n-customers" onclick="goPage('customers')"><span class="nav-dot"></span> Pelanggan</div>
+    <div class="sb-spacer"></div>
+    <div class="sb-footer"><div class="sb-user"><span class="nav-dot" style="background:#4B5280"></span><span id="sb-uname"></span></div></div>
+  </aside>
+  <main id="content">
+
+    <!-- DASHBOARD -->
+    <div id="p-dashboard" class="hidden">
+      <div class="pg-header">
+        <div><div class="pg-title" id="dash-greeting">Dashboard</div><div class="pg-sub">Ringkasan kinerja tim Customer Operation Regional</div></div>
+        <button class="btn btn-primary btn-sm" onclick="goPage('deliveries')">Lihat Semua Report &rarr;</button>
+      </div>
+      <div class="stats-row" id="stats-row"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem" id="dash-grid">
+        <div class="card">
+          <div class="card-head"><span class="card-title">Report Terbaru</span><button class="btn btn-ghost btn-sm" onclick="goPage('deliveries')">Lihat semua</button></div>
+          <div class="tbl-wrap"><table><thead><tr><th>Pelanggan</th><th>CAR</th><th>Target</th><th>Status</th></tr></thead><tbody id="dash-tbl"></tbody></table></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="card-title">Kinerja CAR</span></div>
+          <div id="car-performance" style="padding:1rem"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- REPORT SLA (TABLE + KANBAN) -->
+    <div id="p-deliveries" class="hidden">
+      <div class="pg-header">
+        <div><div class="pg-title">Report SLA</div><div class="pg-sub">Monitoring & update status pengiriman laporan</div></div>
+        <div class="pg-actions" id="del-pg-acts"></div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title" id="del-card-title">Semua Report</span>
+          <div class="card-tools">
+            <div class="view-toggle">
+              <button class="view-btn active" id="vt-table" onclick="setView('table')">&#9776; Tabel</button>
+              <button class="view-btn" id="vt-kanban" onclick="setView('kanban')">&#9638; Kanban</button>
+            </div>
+            <select id="f-st" class="filter-select" onchange="renderDeliveries()"><option value="">Semua Status</option><option>Belum Dibuat</option><option>Sedang Dibuat</option><option>Sudah Dikirim</option><option>Terlambat</option></select>
+            <select id="f-car" class="filter-select" onchange="renderDeliveries()"><option value="">Semua CAR</option></select>
+            <input id="f-q" class="search-input" placeholder="Cari pelanggan..." oninput="renderDeliveries()"/>
+          </div>
+        </div>
+        <div id="view-table">
+          <div class="tbl-wrap"><table><thead><tr><th>Pelanggan</th><th>Jenis Laporan</th><th>CAR</th><th>Periode</th><th>Target Kirim</th><th>Prioritas</th><th>Status</th><th>Tgl Dikirim</th><th>Evidence</th><th>Via</th><th>Aksi</th></tr></thead><tbody id="del-tbl"></tbody></table></div>
+        </div>
+        <div id="view-kanban" class="hidden">
+          <div class="kanban-board" id="kanban-board"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AKTIVITAS CAR (Task Board) -->
+    <div id="p-tasks" class="hidden">
+      <div class="pg-header">
+        <div><div class="pg-title">Aktivitas CAR</div><div class="pg-sub">Monitor aktivitas dan beban kerja seluruh anggota tim</div></div>
+        <div class="pg-actions"><select id="f-task-car" class="filter-select" onchange="renderTasks()"><option value="">Semua CAR</option></select></div>
+      </div>
+      <div id="tasks-content"></div>
+    </div>
+
+    <!-- JENIS LAPORAN (accessible to all) -->
+    <div id="p-rtypes" class="hidden">
+      <div class="pg-header">
+        <div><div class="pg-title">Jenis Laporan</div><div class="pg-sub">Kategori laporan yang dikirimkan kepada pelanggan</div></div>
+        <button class="btn btn-primary btn-sm" onclick="openRtypeForm('')">+ Tambah Jenis</button>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="card-title">Daftar Jenis Laporan</span></div>
+        <div class="tbl-wrap"><table><thead><tr><th>Nama Jenis Laporan</th><th>Ditambahkan Oleh</th><th>Aksi</th></tr></thead><tbody id="rtype-tbl"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- KELOLA CAR (admin only) -->
+    <div id="p-cars" class="hidden">
+      <div class="pg-header">
+        <div><div class="pg-title">Kelola CAR</div><div class="pg-sub">Customer Assistant Representative dalam tim</div></div>
+        <button class="btn btn-primary btn-sm" onclick="openCarForm('')">+ Tambah CAR</button>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="card-title">Daftar Pengguna</span><input id="f-car-q" class="search-input" placeholder="Cari nama..." oninput="renderCars()"/></div>
+        <div class="tbl-wrap"><table><thead><tr><th>Nama</th><th>Username</th><th>Role</th><th>Dibuat</th><th>Aksi</th></tr></thead><tbody id="cars-tbl"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- PELANGGAN (admin only) -->
+    <div id="p-customers" class="hidden">
+      <div class="pg-header">
+        <div><div class="pg-title">Pelanggan</div><div class="pg-sub">Daftar pelanggan B2B yang dikelola tim</div></div>
+        <button class="btn btn-primary btn-sm" onclick="openCustForm('')">+ Tambah Pelanggan</button>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="card-title">Daftar Pelanggan</span><input id="f-cust-q" class="search-input" placeholder="Cari nama..." oninput="renderCustomers()"/></div>
+        <div class="tbl-wrap"><table><thead><tr><th>Nama Pelanggan</th><th>Health Score</th><th>Ditambahkan</th><th>Aksi</th></tr></thead><tbody id="cust-tbl"></tbody></table></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+</div>
+
+<!-- MODAL -->
+<div id="modal-bg" class="hidden" onclick="onMBgClick(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-head"><span class="modal-htitle" id="m-title">-</span><button class="modal-x" onclick="closeModal()">&#x2715;</button></div>
+    <div class="modal-body" id="m-body"></div>
+    <div class="modal-foot" id="m-foot"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+var FB_DEFAULT_CONFIG={apiKey:"AIzaSyCAh7JB8EIpHW2PcMaBuG6LUdMSSkKNOXU",authDomain:"car-monitor-task.firebaseapp.com",projectId:"car-monitor-task",storageBucket:"car-monitor-task.firebasestorage.app",messagingSenderId:"394376666164",appId:"1:394376666164:web:1e2ae34c9afb6d045cfe61"};
+var db=null,cu=null,UNSUB=null,CUR_PAGE='dashboard',CUR_VIEW='table';
+var DATA={users:[],customers:[],rtypes:[],deliveries:[]};
+var STATUSES=['Belum Dibuat','Sedang Dibuat','Sudah Dikirim','Terlambat'];
+var PRIORITIES=['Tinggi','Sedang','Rendah'];
+
+/* ── BOOT ──────────────────────────────── */
+(function boot(){
+  var saved=localStorage.getItem('fb_config');
+  var cfg;
+  if(saved){try{cfg=JSON.parse(saved);}catch(e){cfg=FB_DEFAULT_CONFIG;}}
+  else{cfg=FB_DEFAULT_CONFIG;}
+  initFB(cfg);
+  fillSetup(cfg);
+})();
+
+function initFB(cfg){
+  try{
+    if(firebase.apps.length===0){firebase.initializeApp(cfg);}
+    db=firebase.firestore();
+  }catch(e){console.error('FB:',e);}
+}
+function fillSetup(cfg){
+  sv('fb-apikey',cfg.apiKey||'');sv('fb-projectid',cfg.projectId||'');
+  sv('fb-authdomain',cfg.authDomain||'');sv('fb-storagebucket',cfg.storageBucket||'');
+  sv('fb-msgid',cfg.messagingSenderId||'');sv('fb-appid',cfg.appId||'');
+}
+function showSetup(){showScr('s-setup');}
+function doSetup(){
+  var cfg={apiKey:gv('fb-apikey'),projectId:gv('fb-projectid'),authDomain:gv('fb-authdomain')||(gv('fb-projectid')+'.firebaseapp.com'),storageBucket:gv('fb-storagebucket')||(gv('fb-projectid')+'.appspot.com'),messagingSenderId:gv('fb-msgid'),appId:gv('fb-appid')};
+  if(!cfg.apiKey||!cfg.projectId||!cfg.appId){setAlert('a-setup','API Key, Project ID, dan App ID wajib diisi','error');return;}
+  try{
+    if(firebase.apps.length>0){firebase.apps.forEach(function(a){a.delete();});}
+    initFB(cfg);localStorage.setItem('fb_config',JSON.stringify(cfg));showScr('s-login');
+  }catch(e){setAlert('a-setup','Gagal: '+e.message,'error');}
+}
+
+/* ── AUTH ──────────────────────────────── */
+async function doLogin(){
+  var uname=gv('l-user'),pwd=gv('l-pass');
+  if(!uname||!pwd){setAlert('a-login','Isi username dan password','error');return;}
+  var btn=gi('l-btn');btn.disabled=true;btn.textContent='Memproses...';
+  try{
+    await seedIfEmpty();
+    var snap=await db.collection('users').where('username','==',uname).where('password','==',pwd).limit(1).get();
+    if(snap.empty){setAlert('a-login','Username atau password salah','error');return;}
+    cu=Object.assign({id:snap.docs[0].id},snap.docs[0].data());
+    await loadAll();
+    initUI();startRealtime();showScr('s-app');goPage('dashboard');
+  }catch(e){setAlert('a-login','Gagal: '+e.message,'error');console.error(e);}
+  finally{btn.disabled=false;btn.textContent='Masuk ke Sistem';}
+}
+function doLogout(){
+  if(UNSUB){UNSUB();UNSUB=null;}
+  cu=null;DATA={users:[],customers:[],rtypes:[],deliveries:[]};
+  showScr('s-login');gi('l-user').value='';gi('l-pass').value='';
+}
+function initUI(){
+  var adm=cu.role==='admin';
+  document.querySelectorAll('.admin-only').forEach(function(el){el.style.display=adm?'':'none';});
+  var ini=cu.name.split(' ').slice(0,2).map(function(n){return n[0];}).join('').toUpperCase();
+  gi('user-av').textContent=ini;gi('user-nm').textContent=cu.name;
+  gi('user-rl').textContent=adm?'Administrator':'CAR';
+  gi('sb-uname').textContent=cu.name;
+}
+
+/* ── SEED ──────────────────────────────── */
+async function seedIfEmpty(){
+  try{
+    var us=await db.collection('users').limit(1).get();
+    if(us.empty){
+      await db.collection('users').add({name:'Administrator',username:'admin',password:'Admin@123',role:'admin',created_at:now()});
+    }
+    var rt=await db.collection('report_types').limit(1).get();
+    if(rt.empty){
+      var defs=['Laporan SLA Bulanan','Report Rekonsiliasi Invoice','Laporan Gangguan Jaringan','Executive Summary Pelanggan','Customer Visit Report','Laporan Evaluasi Jaringan'];
+      var b=db.batch();
+      defs.forEach(function(name){var r=db.collection('report_types').doc();b.set(r,{name:name,created_by:'system',created_at:now()});});
+      await b.commit();
+    }
+  }catch(e){console.warn('Seed:',e.message);}
+}
+
+/* ── DATA ──────────────────────────────── */
+async function loadAll(){
+  var r=await Promise.all([
+    db.collection('users').orderBy('name').get(),
+    db.collection('customers').orderBy('name').get(),
+    db.collection('report_types').orderBy('name').get(),
+    db.collection('report_deliveries').orderBy('created_at','desc').get()
+  ]);
+  DATA.users=r[0].docs.map(d2o);DATA.customers=r[1].docs.map(d2o);
+  DATA.rtypes=r[2].docs.map(d2o);DATA.deliveries=r[3].docs.map(d2o);
+  populateCarFilters();
+}
+async function reloadDels(){
+  var s=await db.collection('report_deliveries').orderBy('created_at','desc').get();
+  DATA.deliveries=s.docs.map(d2o);
+}
+function d2o(d){return Object.assign({id:d.id},d.data());}
+function res(d){
+  var c=DATA.customers.find(function(x){return x.id===d.customer_id;});
+  var u=DATA.users.find(function(x){return x.id===d.car_id;});
+  var r=DATA.rtypes.find(function(x){return x.id===d.report_type_id;});
+  return{cname:c?c.name:'-',uname:u?u.name:'-',rname:r?r.name:'-'};
+}
+
+function populateCarFilters(){
+  var cars=DATA.users.filter(function(u){return u.role==='car';});
+  var opts='<option value="">Semua CAR</option>'+cars.map(function(u){return '<option value="'+u.id+'">'+esc(u.name)+'</option>';}).join('');
+  ['f-car','f-task-car'].forEach(function(id){var el=gi(id);if(el)el.innerHTML=opts;});
+}
+
+/* ── REALTIME ──────────────────────────── */
+function startRealtime(){
+  if(UNSUB)UNSUB();
+  UNSUB=db.collection('report_deliveries').orderBy('created_at','desc').onSnapshot(function(snap){
+    DATA.deliveries=snap.docs.map(d2o);
+    updateLateBadge();
+    if(CUR_PAGE==='dashboard')renderDash();
+    if(CUR_PAGE==='deliveries')renderDeliveries();
+    if(CUR_PAGE==='tasks')renderTasks();
+    flashLive();
+  },function(err){console.warn('Realtime:',err.message);});
+}
+function flashLive(){
+  var dot=gi('live-dot');var lbl=gi('live-lbl');if(!dot)return;
+  dot.classList.add('flash');if(lbl)lbl.textContent='UPDATE';
+  setTimeout(function(){dot.classList.remove('flash');if(lbl)lbl.textContent='LIVE';},2000);
+}
+function updateLateBadge(){
+  var late=DATA.deliveries.filter(function(d){return isOD(d)&&cu&&(cu.role==='admin'||d.car_id===cu.id);}).length;
+  var b=gi('badge-late');if(b){b.textContent=late;b.classList.toggle('hidden',late===0);}
+}
+
+/* ── NAVIGATION ────────────────────────── */
+function goPage(pg){
+  CUR_PAGE=pg;
+  ['dashboard','deliveries','tasks','rtypes','cars','customers'].forEach(function(p){
+    var e=gi('p-'+p);if(e)e.classList.add('hidden');
+    var n=gi('n-'+p);if(n)n.classList.remove('active');
+  });
+  var pe=gi('p-'+pg);if(pe)pe.classList.remove('hidden');
+  var ne=gi('n-'+pg);if(ne)ne.classList.add('active');
+  closeSB();
+  if(pg==='dashboard')renderDash();
+  if(pg==='deliveries')renderDeliveries();
+  if(pg==='tasks')renderTasks();
+  if(pg==='rtypes')renderRtypes();
+  if(pg==='cars')renderCars();
+  if(pg==='customers')renderCustomers();
+}
+function setView(v){
+  CUR_VIEW=v;
+  gi('view-table').classList.toggle('hidden',v!=='table');
+  gi('view-kanban').classList.toggle('hidden',v!=='kanban');
+  gi('vt-table').classList.toggle('active',v==='table');
+  gi('vt-kanban').classList.toggle('active',v==='kanban');
+  renderDeliveries();
+}
+
+/* ── DASHBOARD ─────────────────────────── */
+function renderDash(){
+  var adm=cu.role==='admin';
+  var list=adm?DATA.deliveries:DATA.deliveries.filter(function(d){return d.car_id===cu.id;});
+  var tot=list.length,done=0,proc=0,late=0,belum=0;
+  list.forEach(function(d){
+    if(d.status==='Sudah Dikirim'){done+=1;}
+    else if(d.status==='Sedang Dibuat'){proc+=1;}
+    if(isOD(d)){late+=1;}
+    if(!d.status||d.status==='Belum Dibuat'){belum+=1;}
+  });
+  var pct=tot?Math.round(done/tot*100):0;
+  var hr=new Date().getHours();
+  gi('dash-greeting').textContent=(hr<12?'Selamat Pagi':hr<17?'Selamat Siang':'Selamat Sore')+', '+cu.name.split(' ')[0]+' \uD83D\uDC4B';
+  gi('stats-row').innerHTML=
+    sc('','Total Report',tot,'<div class="progress-row"><div class="progress-bar"><div class="progress-fill" style="width:'+pct+'%"></div></div><div class="progress-pct">'+pct+'%</div></div><div class="stat-hint">selesai dikirim</div>')+
+    sc('s-green','Sudah Dikirim',done,pct+'% dari total')+
+    sc('s-blue','Sedang Dibuat',proc,'dalam pengerjaan')+
+    sc('s-amber','Belum Dibuat',belum,'perlu diproses')+
+    sc('s-red','Terlambat',late,'melewati target');
+  var rows=list.slice(0,6).map(function(d){var r=res(d);return '<tr><td class="td-bold">'+esc(r.cname)+'</td><td>'+esc(r.uname)+'</td><td>'+fd(d.target_date)+'</td><td>'+sb(d)+'</td></tr>';}).join('');
+  gi('dash-tbl').innerHTML=rows||er(4,'Belum ada data report');
+
+  // CAR Performance
+  var cars=DATA.users.filter(function(u){return u.role==='car';});
+  var perf=cars.map(function(u){
+    var mine=DATA.deliveries.filter(function(d){return d.car_id===u.id;});
+    var mDone=mine.filter(function(d){return d.status==='Sudah Dikirim';}).length;
+    var mLate=mine.filter(function(d){return isOD(d);}).length;
+    var mPct=mine.length?Math.round(mDone/mine.length*100):0;
+    return{name:u.name,total:mine.length,done:mDone,late:mLate,pct:mPct};
+  });
+  var perfHTML=perf.length?perf.map(function(p){
+    var ini=p.name.split(' ').slice(0,2).map(function(n){return n[0];}).join('').toUpperCase();
+    var col=p.pct>=80?'var(--green)':p.pct>=50?'var(--amber)':'var(--red)';
+    return '<div style="display:flex;align-items:center;gap:.75rem;padding:.6rem 0;border-bottom:1px solid var(--border)">'+
+      '<div class="k-avatar" style="width:32px;height:32px;font-size:11px">'+ini+'</div>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(p.name)+'</div>'+
+        '<div style="display:flex;align-items:center;gap:.5rem;margin-top:3px">'+
+          '<div class="progress-bar" style="height:4px;flex:1"><div class="progress-fill" style="width:'+p.pct+'%;background:'+col+'"></div></div>'+
+          '<span style="font-size:11px;color:var(--text3);font-weight:600;min-width:28px">'+p.pct+'%</span>'+
+        '</div>'+
+      '</div>'+
+      '<div style="text-align:right;flex-shrink:0">'+
+        '<div style="font-size:12px;font-weight:700;color:var(--text)">'+p.done+'/'+p.total+'</div>'+
+        (p.late>0?'<div style="font-size:10.5px;color:var(--red)">'+p.late+' terlambat</div>':'<div style="font-size:10.5px;color:var(--green)">On track</div>')+
+      '</div>'+
+    '</div>';
+  }).join(''):'<div style="padding:1.5rem;text-align:center;color:var(--text3);font-size:13px">Belum ada data CAR</div>';
+  gi('car-performance').innerHTML=perfHTML;
+  updateLateBadge();
+}
+function sc(cls,lbl,val,hint){return '<div class="stat-card '+cls+'"><div class="stat-label">'+lbl+'</div><div class="stat-val">'+val+'</div>'+hint+'</div>';}
+
+/* ── DELIVERIES ────────────────────────── */
+function renderDeliveries(){
+  var adm=cu.role==='admin';
+  var q=(gi('f-q')?gi('f-q').value:'').toLowerCase();
+  var st=gi('f-st')?gi('f-st').value:'';
+  var carF=gi('f-car')?gi('f-car').value:'';
+  var list=adm?DATA.deliveries:DATA.deliveries.filter(function(d){return d.car_id===cu.id;});
+  if(q){list=list.filter(function(d){var r=res(d);return r.cname.toLowerCase().indexOf(q)>=0||r.rname.toLowerCase().indexOf(q)>=0;});}
+  if(st){list=list.filter(function(d){return es(d)===st;});}
+  if(carF){list=list.filter(function(d){return d.car_id===carF;});}
+  gi('del-card-title').textContent=(adm?'Semua Report':'Report Saya')+' ('+list.length+')';
+  gi('del-pg-acts').innerHTML=adm?'<button class="btn btn-primary btn-sm" onclick="openDelForm(\'\')">&plus; Tambah Report</button>':'';
+  if(CUR_VIEW==='table'){
+    var rows=list.map(function(d){
+      var r=res(d);
+      var ev=d.evidence_url?'<a class="ev-link" href="'+d.evidence_url+'" target="_blank">\uD83D\uDD17 Buka</a>':'<span style="color:var(--gray-b)">-</span>';
+      var pBadge=d.priority?priBadge(d.priority):'<span style="color:var(--gray-b);font-size:11px">-</span>';
+      var via=d.updated_via==='telegram'||d.updated_via==='telegram_remi'?'<span class="tg-badge">\u2708 Telegram</span>':'<span style="font-size:11px;color:var(--text3)">Web</span>';
+      var acts=adm
+        ?'<button class="btn btn-ghost btn-sm" onclick="openDelForm(\''+d.id+'\')">Edit</button><button class="btn btn-danger btn-sm" onclick="delDel(\''+d.id+'\')">Hapus</button>'
+        :'<button class="btn btn-primary btn-sm" onclick="openUpdForm(\''+d.id+'\')">Update</button>';
+      return '<tr><td class="td-bold">'+esc(r.cname)+'</td><td>'+esc(r.rname)+'</td><td>'+esc(r.uname)+'</td><td>'+esc(d.period||'-')+'</td><td>'+fd(d.target_date)+'</td><td>'+pBadge+'</td><td>'+sb(d)+'</td><td>'+fd(d.delivery_date)+'</td><td>'+ev+'</td><td>'+via+'</td><td><div class="row-acts">'+acts+'</div></td></tr>';
+    }).join('');
+    gi('del-tbl').innerHTML=rows||er(11,'Tidak ada data untuk filter ini');
+  } else {
+    renderKanban(list);
+  }
+}
+
+function renderKanban(list){
+  var cols={'Belum Dibuat':[],'Sedang Dibuat':[],'Sudah Dikirim':[],'Terlambat':[]};
+  list.forEach(function(d){
+    var s=es(d);
+    if(cols[s])cols[s].push(d);
+    else cols['Belum Dibuat'].push(d);
+  });
+  var colColors={'Belum Dibuat':'var(--gray-b)','Sedang Dibuat':'var(--blue)','Sudah Dikirim':'var(--green)','Terlambat':'var(--red)'};
+  var adm=cu.role==='admin';
+  var html=Object.keys(cols).map(function(status){
+    var items=cols[status];
+    var cards=items.map(function(d){
+      var r=res(d);
+      var ini=r.uname.split(' ').slice(0,2).map(function(n){return n[0];}).join('').toUpperCase();
+      var daysLeft=d.target_date?Math.ceil((new Date(d.target_date)-new Date())/(1000*60*60*24)):null;
+      var dateClass=daysLeft===null?'ok':daysLeft<0?'overdue':daysLeft<=3?'soon':'ok';
+      var dateLabel=daysLeft===null?'-':daysLeft<0?'Lewat '+Math.abs(daysLeft)+' hr':daysLeft===0?'Hari ini':daysLeft+' hr lagi';
+      var actBtn=adm?'onclick="openDelForm(\''+d.id+'\')"':'onclick="openUpdForm(\''+d.id+'\')"';
+      return '<div class="k-card" '+actBtn+'>'+
+        '<div class="k-card-cust">'+esc(r.cname)+'</div>'+
+        '<div class="k-card-report">'+esc(r.rname)+(d.period?' &middot; '+esc(d.period):'')+'</div>'+
+        '<div class="k-card-footer">'+
+          '<div class="k-card-car"><div class="k-avatar">'+ini+'</div>'+esc(r.uname.split(' ')[0])+'</div>'+
+          (d.priority?priBadge(d.priority):'')+
+          '<span class="k-date '+dateClass+'">'+dateLabel+'</span>'+
+        '</div>'+
+      '</div>';
+    }).join('');
+    return '<div class="kanban-col">'+
+      '<div class="kanban-col-head" style="border-bottom-color:'+colColors[status]+'">'+
+        '<span>'+status+'</span>'+
+        '<span class="k-count">'+items.length+'</span>'+
+      '</div>'+
+      '<div class="kanban-cards">'+cards+'</div>'+
+    '</div>';
+  }).join('');
+  gi('kanban-board').innerHTML=html;
+}
+
+/* ── TASKS / AKTIVITAS CAR ─────────────── */
+function renderTasks(){
+  var carF=gi('f-task-car')?gi('f-task-car').value:'';
+  var cars=DATA.users.filter(function(u){return u.role==='car';});
+  if(carF){cars=cars.filter(function(u){return u.id===carF;});}
+  if(!cu||cu.role!=='admin'){cars=cars.filter(function(u){return u.id===cu.id;});}
+  var html=cars.map(function(u){
+    var mine=DATA.deliveries.filter(function(d){return d.car_id===u.id;});
+    var done=mine.filter(function(d){return d.status==='Sudah Dikirim';}).length;
+    var proc=mine.filter(function(d){return d.status==='Sedang Dibuat';}).length;
+    var late=mine.filter(function(d){return isOD(d);}).length;
+    var belum=mine.filter(function(d){return !d.status||d.status==='Belum Dibuat';}).length;
+    var pct=mine.length?Math.round(done/mine.length*100):0;
+    var health=late>0?'merah':pct>=80?'hijau':'kuning';
+    var hDots=['hijau','hijau','hijau'].map(function(c,i){
+      var fill=health==='hijau'?'var(--green)':health==='kuning'&&i<2?'var(--amber)':health==='merah'&&i<1?'var(--red)':'var(--border2)';
+      return '<div class="h-dot" style="background:'+fill+'"></div>';
+    }).join('');
+    var recent=mine.slice(0,3).map(function(d){
+      var r=res(d);
+      return '<div class="activity-item"><div class="act-dot" style="background:'+(isOD(d)?'var(--red)':d.status==='Sudah Dikirim'?'var(--green)':'var(--blue)')+'"></div>'+
+        '<div><div class="act-text"><strong>'+esc(r.cname)+'</strong> &mdash; '+esc(r.rname)+'</div>'+
+        '<div class="act-time">'+sb(d)+(d.delivery_date?' &middot; Dikirim '+fd(d.delivery_date):'')+'</div></div></div>';
+    }).join('');
+    return '<div class="card" style="margin-bottom:1rem">'+
+      '<div class="card-head">'+
+        '<div style="display:flex;align-items:center;gap:.75rem">'+
+          '<div class="user-avatar" style="width:38px;height:38px;font-size:13px;flex-shrink:0">'+u.name.split(' ').slice(0,2).map(function(n){return n[0];}).join('').toUpperCase()+'</div>'+
+          '<div><div style="font-size:15px;font-weight:700;color:var(--text)">'+esc(u.name)+'</div>'+
+          '<div style="font-size:12px;color:var(--text3)">Customer Assistant Representative</div></div>'+
+        '</div>'+
+        '<div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">'+
+          '<div class="health-bar"><div class="health-dots">'+hDots+'</div><span style="font-size:11px;color:var(--text3);margin-left:.35rem">'+health.charAt(0).toUpperCase()+health.slice(1)+'</span></div>'+
+          '<div style="display:flex;gap:.5rem">'+
+            '<span class="badge badge-green">'+done+' Dikirim</span>'+
+            '<span class="badge badge-blue">'+proc+' Proses</span>'+
+            (late>0?'<span class="badge badge-red">'+late+' Terlambat</span>':'')+
+            (belum>0?'<span class="badge badge-gray">'+belum+' Belum</span>':'')+
+          '</div>'+
+        '</div>'+
+      '</div>'+
+      '<div style="padding:.85rem 1.25rem">'+
+        '<div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem">'+
+          '<div class="progress-bar" style="flex:1"><div class="progress-fill" style="width:'+pct+'%;background:'+(pct>=80?'var(--green)':pct>=50?'var(--amber)':'var(--red)')+'"></div></div>'+
+          '<span style="font-size:12px;font-weight:700;color:var(--text3)">'+pct+'%</span>'+
+        '</div>'+
+        (recent?'<ul class="activity-list">'+recent+'</ul>':'<div style="color:var(--text3);font-size:13px;padding:.5rem 0">Belum ada aktivitas</div>')+
+      '</div>'+
+    '</div>';
+  }).join('');
+  gi('tasks-content').innerHTML=html||'<div style="text-align:center;padding:2rem;color:var(--text3)">Tidak ada data CAR</div>';
+}
+
+/* ── RTYPES (all users) ─────────────────── */
+function renderRtypes(){
+  var rows=DATA.rtypes.map(function(r){
+    var isAdmin=cu.role==='admin';
+    var acts='<div class="row-acts"><button class="btn btn-ghost btn-sm" onclick="openRtypeForm(\''+r.id+'\')">Edit</button>'+(isAdmin?'<button class="btn btn-danger btn-sm" onclick="delRtype(\''+r.id+'\')">Hapus</button>':'')+'</div>';
+    return '<tr><td class="td-bold">'+esc(r.name)+'</td><td style="font-size:12px;color:var(--text3)">'+esc(r.created_by||'system')+'</td><td>'+acts+'</td></tr>';
+  }).join('');
+  gi('rtype-tbl').innerHTML=rows||er(3,'Belum ada jenis laporan');
+}
+
+/* ── CARS ──────────────────────────────── */
+function renderCars(){
+  var q=(gi('f-car-q')?gi('f-car-q').value:'').toLowerCase();
+  var list=DATA.users.filter(function(u){return u.name.toLowerCase().indexOf(q)>=0||u.username.toLowerCase().indexOf(q)>=0;});
+  var rows=list.map(function(u){
+    var rb=u.role==='admin'?'<span class="badge badge-purple">Admin</span>':'<span class="badge badge-blue2">CAR</span>';
+    var del=u.id===cu.id?'<span style="font-size:11px;color:var(--text3);padding:.3rem .5rem">Akun saya</span>':'<button class="btn btn-danger btn-sm" onclick="delCar(\''+u.id+'\')">Hapus</button>';
+    return '<tr><td class="td-bold">'+esc(u.name)+'</td><td><code style="background:var(--bg);padding:.15rem .5rem;border-radius:5px;font-family:var(--mono);font-size:12px">'+esc(u.username)+'</code></td><td>'+rb+'</td><td>'+fd(u.created_at)+'</td><td><div class="row-acts"><button class="btn btn-ghost btn-sm" onclick="openCarForm(\''+u.id+'\')">Edit</button>'+del+'</div></td></tr>';
+  }).join('');
+  gi('cars-tbl').innerHTML=rows||er(5,'Belum ada data CAR');
+}
+
+/* ── CUSTOMERS ─────────────────────────── */
+function renderCustomers(){
+  var q=(gi('f-cust-q')?gi('f-cust-q').value:'').toLowerCase();
+  var list=DATA.customers.filter(function(c){return c.name.toLowerCase().indexOf(q)>=0;});
+  var rows=list.map(function(c){
+    var mine=DATA.deliveries.filter(function(d){return d.customer_id===c.id;});
+    var late=mine.filter(function(d){return isOD(d);}).length;
+    var done=mine.filter(function(d){return d.status==='Sudah Dikirim';}).length;
+    var hs=mine.length===0?'N/A':late>0?'<span style="color:var(--red);font-weight:600">Risiko</span>':done/mine.length>=0.8?'<span style="color:var(--green);font-weight:600">Baik</span>':'<span style="color:var(--amber);font-weight:600">Perlu Perhatian</span>';
+    return '<tr><td class="td-bold">'+esc(c.name)+'</td><td>'+hs+'</td><td>'+fd(c.created_at)+'</td><td><div class="row-acts"><button class="btn btn-ghost btn-sm" onclick="openCustForm(\''+c.id+'\')">Edit</button><button class="btn btn-danger btn-sm" onclick="delCust(\''+c.id+'\')">Hapus</button></div></td></tr>';
+  }).join('');
+  gi('cust-tbl').innerHTML=rows||er(4,'Belum ada data pelanggan');
+}
+
+/* ── FORM HELPERS ──────────────────────── */
+function mkSel(id,items,cur,ph){
+  var h='<select id="'+id+'"><option value="">'+ph+'</option>';
+  items.forEach(function(i){h+='<option value="'+i.id+'"'+(i.id===cur?' selected':'')+'>'+esc(i.name)+'</option>';});
+  return h+'</select>';
+}
+function mkStSel(id,cur){
+  var h='<select id="'+id+'">';
+  STATUSES.forEach(function(s){h+='<option value="'+s+'"'+(s===cur?' selected':'')+'>'+s+'</option>';});
+  return h+'</select>';
+}
+function mkPriSel(id,cur){
+  var h='<select id="'+id+'"><option value="">-- Pilih Prioritas --</option>';
+  PRIORITIES.forEach(function(p){h+='<option value="'+p+'"'+(p===cur?' selected':'')+'>'+p+'</option>';});
+  return h+'</select>';
+}
+
+/* ── FORM: DELIVERY (admin) ─────────────── */
+function openDelForm(rowId){
+  var d=rowId?DATA.deliveries.find(function(x){return x.id===rowId;}):null;
+  var cars=DATA.users.filter(function(u){return u.role==='car';});
+  var body=
+    '<div class="frow"><div class="fgroup"><label>Pelanggan *</label>'+mkSel('fd-cust',DATA.customers,d?d.customer_id:'','-- Pilih Pelanggan --')+'</div>'+
+    '<div class="fgroup"><label>CAR</label>'+mkSel('fd-car',cars,d?d.car_id:'','-- Pilih CAR --')+'</div></div>'+
+    '<div class="frow"><div class="fgroup"><label>Jenis Laporan</label>'+mkSel('fd-rt',DATA.rtypes,d?d.report_type_id:'','-- Pilih Jenis --')+'</div>'+
+    '<div class="fgroup"><label>Prioritas</label>'+mkPriSel('fd-pri',d?d.priority||'':'')+'</div></div>'+
+    '<div class="frow"><div class="fgroup"><label>Periode</label><input id="fd-per" type="text" value="'+esc(d?d.period||'':'').replace(/"/g,'&quot;')+'" placeholder="cth: Januari 2025"/></div>'+
+    '<div class="fgroup"><label>Target Pengiriman *</label><input id="fd-tgt" type="date" value="'+(d?d.target_date||'':'')+'"/></div></div>'+
+    '<div class="frow"><div class="fgroup"><label>Status</label>'+mkStSel('fd-st',d?d.status||'Belum Dibuat':'Belum Dibuat')+'</div>'+
+    '<div class="fgroup"><label>Tgl Dikirim</label><input id="fd-dd" type="date" value="'+(d?d.delivery_date||'':'')+'"/></div></div>'+
+    '<div class="fgroup"><label>Evidence (Link URL)</label><input type="url" id="fd-file" value="'+(d?d.evidence_url||'':'').replace(/"/g,'&quot;')+'" placeholder="https://drive.google.com/..." style="width:100%"/><div class="finput-note">Tempel link Google Drive, OneDrive, atau URL lainnya.</div></div>'+
+    '<div class="fgroup"><label>Catatan</label><textarea id="fd-notes" placeholder="Catatan...">'+esc(d?d.notes||'':'')+'</textarea></div>';
+  var sl=d?'Simpan Perubahan':'Tambah Report';
+  openModal(d?'Edit Report SLA':'Tambah Report SLA',body,'<button class="btn btn-ghost" onclick="closeModal()">Batal</button><button class="btn btn-primary" id="m-save" onclick="saveDel(\''+rowId+'\')">'+sl+'</button>');
+}
+async function saveDel(rowId){
+  var btn=gi('m-save');btn.disabled=true;btn.textContent='Menyimpan...';
+  try{
+    var cid=gi('fd-cust').value;if(!cid){toast('Pilih pelanggan','err');return;}
+    var tgt=gi('fd-tgt').value;if(!tgt){toast('Target tanggal wajib diisi','err');return;}
+    var evUrl=(gi('fd-file')&&gi('fd-file').value.trim())?gi('fd-file').value.trim():null;
+    var p={customer_id:cid,car_id:gi('fd-car').value||null,report_type_id:gi('fd-rt').value||null,priority:gi('fd-pri').value||null,period:gi('fd-per').value.trim()||null,target_date:tgt,status:gi('fd-st').value,delivery_date:gi('fd-dd').value||null,notes:gi('fd-notes').value.trim()||null,evidence_url:evUrl,updated_at:now()};
+    if(rowId){await db.collection('report_deliveries').doc(rowId).update(p);}
+    else{p.created_at=now();await db.collection('report_deliveries').add(p);}
+    closeModal();await reloadDels();renderDeliveries();renderDash();
+    toast(rowId?'Report diperbarui':'Report ditambahkan');
+  }catch(e){toast('Gagal: '+e.message,'err');console.error(e);}
+  finally{btn.disabled=false;btn.textContent=rowId?'Simpan Perubahan':'Tambah Report';}
+}
+async function delDel(id){
+  if(!confirm('Hapus report ini?'))return;
+  try{await db.collection('report_deliveries').doc(id).delete();DATA.deliveries=DATA.deliveries.filter(function(d){return d.id!==id;});renderDeliveries();renderDash();toast('Report dihapus');}
+  catch(e){toast('Gagal: '+e.message,'err');}
+}
+
+/* ── FORM: UPDATE (CAR) ─────────────────── */
+function openUpdForm(rowId){
+  var d=DATA.deliveries.find(function(x){return x.id===rowId;});if(!d)return;
+  var r=res(d);
+  var body=
+    '<div class="delivery-info"><div class="delivery-info-title">'+esc(r.cname)+'</div><div class="delivery-info-row">Periode: <strong>'+esc(d.period||'-')+'</strong> &middot; CAR: <strong>'+esc(r.uname)+'</strong></div></div>'+
+    '<div class="fgroup"><label>Jenis Laporan</label>'+mkSel('fu-rt',DATA.rtypes,d.report_type_id||'','-- Pilih --')+'</div>'+
+    '<div class="fgroup"><label>Target Pengiriman</label><input id="fu-tgt" type="date" value="'+(d.target_date||'')+'"/></div>'+
+    '<div class="fgroup"><label>Status Pengiriman</label>'+mkStSel('fu-st',d.status||'Belum Dibuat')+'</div>'+
+    '<div class="fgroup"><label>Tanggal Dikirim Aktual</label><input id="fu-dd" type="date" value="'+(d.delivery_date||'')+'"/></div>'+
+    '<div class="fgroup"><label>Evidence (Link URL)</label><input type="url" id="fu-file" value="'+(d.evidence_url||'').replace(/"/g,'&quot;')+'" placeholder="https://drive.google.com/..." style="width:100%"/><div class="finput-note">Link Google Drive, OneDrive, Dropbox, dll.</div></div>'+
+    '<div class="fgroup"><label>Catatan</label><textarea id="fu-notes" placeholder="Catatan...">'+esc(d.notes||'')+'</textarea></div>';
+  openModal('Update Status Report',body,'<button class="btn btn-ghost" onclick="closeModal()">Batal</button><button class="btn btn-primary" id="mu-save" onclick="saveUpd(\''+rowId+'\')">Simpan Update</button>');
+}
+async function saveUpd(rowId){
+  var d=DATA.deliveries.find(function(x){return x.id===rowId;});
+  var btn=gi('mu-save');btn.disabled=true;btn.textContent='Menyimpan...';
+  try{
+    var evUrl=(gi('fu-file')&&gi('fu-file').value.trim())?gi('fu-file').value.trim():(d?d.evidence_url||null:null);
+    var p={report_type_id:gi('fu-rt').value||(d?d.report_type_id:null),target_date:gi('fu-tgt').value||null,status:gi('fu-st').value,delivery_date:gi('fu-dd').value||null,notes:gi('fu-notes').value.trim()||null,evidence_url:evUrl,updated_at:now()};
+    await db.collection('report_deliveries').doc(rowId).update(p);
+    closeModal();await reloadDels();renderDeliveries();renderDash();toast('Status berhasil diperbarui');
+  }catch(e){toast('Gagal: '+e.message,'err');console.error(e);}
+  finally{btn.disabled=false;btn.textContent='Simpan Update';}
+}
+
+/* ── FORM: RTYPE (all users) ────────────── */
+function openRtypeForm(rid){
+  var r=rid?DATA.rtypes.find(function(x){return x.id===rid;}):null;
+  var body='<div class="fgroup"><label>Nama Jenis Laporan *</label><input id="fr-nm" type="text" value="'+esc(r?r.name:'').replace(/"/g,'&quot;')+'" placeholder="Contoh: Laporan SLA Bulanan"/></div>';
+  var sl=r?'Simpan Perubahan':'Tambah Jenis';
+  openModal(r?'Edit Jenis Laporan':'Tambah Jenis Laporan',body,'<button class="btn btn-ghost" onclick="closeModal()">Batal</button><button class="btn btn-primary" onclick="saveRtype(\''+rid+'\')">'+sl+'</button>');
+}
+async function saveRtype(rid){
+  var nm=gi('fr-nm').value.trim();if(!nm){toast('Nama wajib diisi','err');return;}
+  try{
+    if(rid){await db.collection('report_types').doc(rid).update({name:nm});}
+    else{await db.collection('report_types').add({name:nm,created_by:cu.name,created_at:now()});}
+    closeModal();var s=await db.collection('report_types').orderBy('name').get();DATA.rtypes=s.docs.map(d2o);
+    renderRtypes();toast(rid?'Jenis diperbarui':'Jenis ditambahkan');
+  }catch(e){toast('Gagal: '+e.message,'err');}
+}
+async function delRtype(rid){
+  if(!confirm('Hapus jenis laporan ini?'))return;
+  try{await db.collection('report_types').doc(rid).delete();DATA.rtypes=DATA.rtypes.filter(function(r){return r.id!==rid;});renderRtypes();toast('Jenis dihapus');}
+  catch(e){toast('Gagal: '+e.message,'err');}
+}
+
+/* ── FORM: CAR ─────────────────────────── */
+function openCarForm(uid){
+  var u=uid?DATA.users.find(function(x){return x.id===uid;}):null;
+  var sw=(u&&u.id===cu.id)?'<div class="alert alert-warn" style="margin-top:.75rem">\u26A0 Anda mengedit akun sendiri.</div>':'';
+  var body=
+    '<div class="frow"><div class="fgroup"><label>Nama Lengkap *</label><input id="fc-nm" type="text" value="'+esc(u?u.name:'').replace(/"/g,'&quot;')+'" placeholder="Nama lengkap"/></div>'+
+    '<div class="fgroup"><label>Username *</label><input id="fc-un" type="text" value="'+esc(u?u.username:'').replace(/"/g,'&quot;')+'" placeholder="username" autocomplete="off"/></div></div>'+
+    '<div class="fgroup"><label>Password '+(u?'(kosongkan jika tidak diubah)':'*')+'</label><input id="fc-pw" type="password" placeholder="password" autocomplete="new-password"/>'+
+    (u?'<div class="finput-note">Biarkan kosong untuk mempertahankan password lama.</div>':'')+'</div>'+
+    '<div class="fgroup"><label>Role</label><select id="fc-rl"><option value="car"'+(!u||u.role==='car'?' selected':'')+'>CAR (Customer AR)</option><option value="admin"'+(u&&u.role==='admin'?' selected':'')+'>Administrator</option></select></div>'+sw;
+  var sl=u?'Simpan Perubahan':'Tambah Pengguna';
+  openModal(u?'Edit Pengguna':'Tambah CAR / Admin',body,'<button class="btn btn-ghost" onclick="closeModal()">Batal</button><button class="btn btn-primary" id="mc-save" onclick="saveCar(\''+uid+'\')">'+sl+'</button>');
+}
+async function saveCar(uid){
+  var btn=gi('mc-save');btn.disabled=true;btn.textContent='Menyimpan...';
+  try{
+    var nm=gi('fc-nm').value.trim(),un=gi('fc-un').value.trim(),pw=gi('fc-pw').value,rl=gi('fc-rl').value;
+    if(!nm||!un){toast('Nama dan username wajib diisi','err');return;}
+    if(!uid&&!pw){toast('Password wajib untuk pengguna baru','err');return;}
+    var p={name:nm,username:un,role:rl};if(pw)p.password=pw;
+    if(uid){await db.collection('users').doc(uid).update(p);}
+    else{p.created_at=now();await db.collection('users').add(p);}
+    closeModal();var s=await db.collection('users').orderBy('name').get();DATA.users=s.docs.map(d2o);
+    populateCarFilters();renderCars();toast(uid?'CAR diperbarui':'CAR ditambahkan');
+  }catch(e){toast('Gagal: '+e.message,'err');}
+  finally{btn.disabled=false;btn.textContent=uid?'Simpan Perubahan':'Tambah Pengguna';}
+}
+async function delCar(uid){
+  if(!confirm('Hapus pengguna ini?'))return;
+  try{await db.collection('users').doc(uid).delete();DATA.users=DATA.users.filter(function(u){return u.id!==uid;});populateCarFilters();renderCars();toast('Pengguna dihapus');}
+  catch(e){toast('Gagal: '+e.message,'err');}
+}
+
+/* ── FORM: CUSTOMER ─────────────────────── */
+function openCustForm(cid){
+  var c=cid?DATA.customers.find(function(x){return x.id===cid;}):null;
+  var body='<div class="fgroup"><label>Nama Pelanggan *</label><input id="fcu-nm" type="text" value="'+esc(c?c.name:'').replace(/"/g,'&quot;')+'" placeholder="Nama perusahaan pelanggan"/></div>';
+  var sl=c?'Simpan Perubahan':'Tambah Pelanggan';
+  openModal(c?'Edit Pelanggan':'Tambah Pelanggan',body,'<button class="btn btn-ghost" onclick="closeModal()">Batal</button><button class="btn btn-primary" onclick="saveCust(\''+cid+'\')">'+sl+'</button>');
+}
+async function saveCust(cid){
+  var nm=gi('fcu-nm').value.trim();if(!nm){toast('Nama wajib diisi','err');return;}
+  try{
+    if(cid){await db.collection('customers').doc(cid).update({name:nm});}
+    else{await db.collection('customers').add({name:nm,created_at:now()});}
+    closeModal();var s=await db.collection('customers').orderBy('name').get();DATA.customers=s.docs.map(d2o);
+    renderCustomers();toast(cid?'Pelanggan diperbarui':'Pelanggan ditambahkan');
+  }catch(e){toast('Gagal: '+e.message,'err');}
+}
+async function delCust(cid){
+  if(!confirm('Hapus pelanggan ini?'))return;
+  try{await db.collection('customers').doc(cid).delete();DATA.customers=DATA.customers.filter(function(c){return c.id!==cid;});renderCustomers();toast('Pelanggan dihapus');}
+  catch(e){toast('Gagal: '+e.message,'err');}
+}
+
+/* ── MODAL ──────────────────────────────── */
+function openModal(t,b,f){gi('m-title').textContent=t;gi('m-body').innerHTML=b;gi('m-foot').innerHTML=f||'';gi('modal-bg').classList.remove('hidden');}
+function closeModal(){gi('modal-bg').classList.add('hidden');}
+function onMBgClick(e){if(e.target===gi('modal-bg'))closeModal();}
+
+/* ── SIDEBAR ────────────────────────────── */
+function toggleSB(){gi('sidebar').classList.toggle('open');gi('sb-overlay').classList.toggle('show');}
+function closeSB(){gi('sidebar').classList.remove('open');gi('sb-overlay').classList.remove('show');}
+
+/* ── TOAST ──────────────────────────────── */
+function toast(msg,type){
+  type=type||'ok';
+  var el=document.createElement('div');
+  el.className='toast toast-'+type;
+  el.textContent=(type==='ok'?'\u2713 ':'\u2717 ')+msg;
+  gi('toast-area').appendChild(el);
+  setTimeout(function(){el.style.opacity='0';},2600);
+  setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},3000);
+}
+
+/* ── UTILITIES ──────────────────────────── */
+function showScr(id){['s-login','s-setup','s-app'].forEach(function(s){gi(s).classList.add('hidden');});gi(id).classList.remove('hidden');}
+function gi(s){return document.getElementById(s);}
+function gv(s){var e=gi(s);return e?e.value.trim():'';}
+function sv(s,v){var e=gi(s);if(e)e.value=v;}
+var m={'&':'&amp;','<':'&lt;','>':'&gt;','\x22':'&quot;','\x27':'&#39;'};
+function esc(s){return String(s||'').replace(/[&<>"']/g,function(c){return m[c]||c;});}
+function fd(dt){if(!dt)return '-';try{return new Date(dt).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});}catch(e){return dt;}}
+function er(c,msg){return '<tr class="empty-row"><td colspan="'+c+'">'+msg+'</td></tr>';}
+function now(){return new Date().toISOString();}
+function isOD(d){return d.status!=='Sudah Dikirim'&&d.target_date&&new Date(d.target_date)<new Date();}
+function es(d){return isOD(d)?'Terlambat':d.status||'Belum Dibuat';}
+function sb(d){
+  var s=es(d);
+  var cls={'Sudah Dikirim':'badge-green','Sedang Dibuat':'badge-blue','Terlambat':'badge-red','Belum Dibuat':'badge-gray'};
+  var dot={'Sudah Dikirim':'\u2713','Sedang Dibuat':'\u25C9','Terlambat':'\u26A0','Belum Dibuat':'\u25CB'};
+  return '<span class="badge '+(cls[s]||'badge-gray')+'">'+(dot[s]||'')+' '+s+'</span>';
+}
+function priBadge(p){
+  var cls={'Tinggi':'priority-high','Sedang':'priority-med','Rendah':'priority-low'};
+  var dot={'Tinggi':'\u25B2','Sedang':'\u25A0','Rendah':'\u25BC'};
+  return '<span class="priority '+(cls[p]||'priority-low')+'">'+(dot[p]||'')+' '+p+'</span>';
+}
+function setAlert(id,msg,type){
+  var e=gi(id);if(!e)return;
+  e.innerHTML='<div class="alert alert-'+(type==='error'?'error':'success')+'">'+esc(msg)+'</div>';
+  setTimeout(function(){if(e)e.innerHTML='';},6000);
+}
+</script>
+</body>
+</html>
