@@ -467,6 +467,17 @@ tr:hover td{background:#FAFBFE}
           <div class="kanban-board" id="my-kanban"></div>
         </div>
       </div>
+      <!-- Monthly Status Widget (Admin only) -->
+      <div class="card admin-only" id="dash-monthly-status" style="margin-top:1rem">
+        <div class="card-head">
+          <span class="card-title" id="dash-monthly-title">Status Laporan Bulan Berjalan</span>
+          <span id="dash-monthly-pct" style="font-size:12.5px;color:var(--text3)"></span>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Pelanggan</th><th>CAR</th><th>Laporan &amp; Status</th></tr></thead>
+          <tbody id="dash-monthly-tbl"><tr class="empty-row"><td colspan="3">Memuat...</td></tr></tbody>
+        </table></div>
+      </div>
     </div>
 
     <!-- TASK MANAGEMENT: CAR SELECTION -->
@@ -750,66 +761,42 @@ function myDeliveries(){
 
 // ON TRACK logic: % laporan tepat waktu (sudah dikirim sebelum/pada target)
 function calcOnTrack(deliveries){
-  // Total setahun: hitung semua laporan tahun berjalan
-  if(!deliveries.length)return{pct:0,pctMonth:0,label:'Belum Ada Data',cls:'ot-gray',
-    onTime:0,total:0,onTimeMonth:0,totalMonth:0};
-
-  var now=new Date();
-  var curYear=now.getFullYear();
-  var curMonth=now.getMonth(); // 0-based
-
-  // Filter tahun berjalan
-  var yearDels=deliveries.filter(function(d){
-    if(!d.target_date)return true;
-    return new Date(d.target_date).getFullYear()===curYear;
-  });
-
-  // Filter bulan berjalan
-  var monthDels=deliveries.filter(function(d){
-    if(!d.target_date)return false;
-    var t=new Date(d.target_date);
-    return t.getFullYear()===curYear&&t.getMonth()===curMonth;
-  });
-
-  function countOnTime(list){
-    return list.filter(function(d){
-      if(d.status!=='Sudah Dikirim')return false;
-      if(!d.target_date||!d.delivery_date)return false;
-      return new Date(d.delivery_date)<=new Date(d.target_date);
-    }).length;
-  }
-
-  var onTime=countOnTime(yearDels);
-  var total=yearDels.filter(function(d){return d.status==='Sudah Dikirim';}).length;
-  var pct=total?Math.round(onTime/total*100):null;
-
-  var onTimeM=countOnTime(monthDels);
-  var totalM=monthDels.filter(function(d){return d.status==='Sudah Dikirim';}).length;
-  var pctM=totalM?Math.round(onTimeM/totalM*100):null;
-
-  // Label berdasarkan bulan berjalan (lebih relevan)
-  var refPct=pctM!==null?pctM:(pct!==null?pct:null);
-  var cls=refPct===null?'ot-gray':refPct>=80?'ot-on':refPct>=50?'ot-warn':'ot-off';
-  var label=refPct===null?'Belum Ada Data':refPct>=80?'On Track':refPct>=50?'At Risk':'Off Track';
-
-  return{
-    pct:pct,pctMonth:pctM,
-    label:label,cls:cls,
-    onTime:onTime,total:total,
-    onTimeMonth:onTimeM,totalMonth:totalM
-  };
+  /*
+   * BULAN BERJALAN (mis. Mei): laporan dg target_date bulan ini
+   *   % = tepat waktu / TOTAL bulan ini (termasuk belum dibuat)
+   * SETAHUN: laporan dg target_date tahun ini
+   *   % = tepat waktu / TOTAL 12 bulan (4/12=33%)
+   * Breakdown: tepat waktu | terlambat kirim | belum dibuat
+   */
+  if(!deliveries.length)return{
+    pct:null,pctMonth:null,label:'Belum Ada Data',cls:'ot-gray',
+    onTime:0,terlambat:0,belumDibuat:0,total:0,
+    onTimeMonth:0,terlambatMonth:0,belumDibuatMonth:0,totalMonth:0};
+  var now=new Date(),Y=now.getFullYear(),M=now.getMonth();
+  function inM(d){if(!d.target_date)return false;var t=new Date(d.target_date);return t.getFullYear()===Y&&t.getMonth()===M;}
+  function inY(d){if(!d.target_date)return false;return new Date(d.target_date).getFullYear()===Y;}
+  function onT(d){return d.status==='Sudah Dikirim'&&d.delivery_date&&d.target_date&&new Date(d.delivery_date)<=new Date(d.target_date);}
+  function lt(d){return d.status==='Sudah Dikirim'&&(!d.delivery_date||!d.target_date||new Date(d.delivery_date)>new Date(d.target_date));}
+  function st(list){var n=list.length,ot=list.filter(onT).length,la=list.filter(lt).length,bd=list.filter(function(d){return d.status!=='Sudah Dikirim';}).length;return{onTime:ot,terlambat:la,belumDibuat:bd,total:n,pct:n?Math.round(ot/n*100):null};}
+  var m=st(deliveries.filter(inM)),y=st(deliveries.filter(inY));
+  var ref=m.pct!==null?m.pct:(y.pct!==null?y.pct:null);
+  var cls=ref===null?'ot-gray':ref>=80?'ot-on':ref>=50?'ot-warn':'ot-off';
+  var lbl=ref===null?'Belum Ada Data':ref>=80?'On Track':ref>=50?'At Risk':'Off Track';
+  return{pct:y.pct,pctMonth:m.pct,label:lbl,cls:cls,
+    onTime:y.onTime,terlambat:y.terlambat,belumDibuat:y.belumDibuat,total:y.total,
+    onTimeMonth:m.onTime,terlambatMonth:m.terlambat,belumDibuatMonth:m.belumDibuat,totalMonth:m.total};
 }
+
 function otBadge(deliveries){
   var o=calcOnTrack(deliveries);
   if(o.label==='Belum Ada Data')return '<span class="badge badge-gray">Belum Ada Data</span>';
-  var mLabel=o.pctMonth!==null?'Bulan ini: '+o.pctMonth+'%':'Bulan ini: -';
-  var yLabel=o.pct!==null?'Setahun: '+o.pct+'%':'Setahun: -';
-  return '<span class="ot-badge '+o.cls+'" title="'+mLabel+' | '+yLabel+'">'+
+  var mStr=o.pctMonth!==null?o.pctMonth+'%':'-';
+  var yStr=o.pct!==null?o.pct+'%':'-';
+  return '<span class="ot-badge '+o.cls+'" title="Bulan ini: '+mStr+' tepat waktu | Setahun: '+yStr+' tepat waktu">'+
     '<span class="ot-dot"></span>'+o.label+
-    ' <span style="font-weight:400;font-size:10px;opacity:.85">('+
-    (o.pctMonth!==null?o.pctMonth:'-')+'% bln | '+
-    (o.pct!==null?o.pct:'-')+'% thn)</span></span>';
+    ' <span style="font-weight:400;font-size:10px;opacity:.85">('+mStr+' bln | '+yStr+' thn)</span></span>';
 }
+
 
 /* ════════════════ TASK MANAGEMENT — CAR GRID ════════════════ */
 var ACTIVE_CAR_ID=null;
@@ -905,9 +892,36 @@ function renderCarTasks(){
   gi('ct-card-title').textContent='Tugas '+u.name+' ('+list.length+')';
   var allMine=DATA.deliveries.filter(function(d){return d.car_id===ACTIVE_CAR_ID&&aCIds.indexOf(d.customer_id)>=0;});
   var ot=calcOnTrack(allMine);
-  gi('ct-ontrack').innerHTML='<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:.9rem 1.25rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem">'+
-    '<div style="font-size:13px;font-weight:600;color:var(--text)">Kinerja '+esc(u.name)+'</div>'+
-    '<span class="ot-badge '+ot.cls+'"><span class="ot-dot"></span>'+ot.label+(ot.label!=='Belum Ada Data'?' \u2014 '+ot.pct+'% tepat waktu':'')+'</span></div>';
+  gi('ct-ontrack').innerHTML=
+    (function(){
+      var o=calcOnTrack(allMine);
+      var now=new Date();
+      var mnm=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+      var mLabel=mnm[now.getMonth()]+' '+now.getFullYear();
+      if(o.label==='Belum Ada Data')return '<div class="alert alert-info">Belum ada data laporan untuk '+esc(u.name)+'.</div>';
+      return '<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem">'+
+        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.75rem">'+
+        '<div style="font-size:13px;font-weight:700;color:var(--text)">Kinerja '+esc(u.name)+'</div>'+
+        '<span class="ot-badge '+o.cls+'"><span class="ot-dot"></span>'+o.label+'</span></div>'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">'+
+        '<div style="background:var(--blue-bg);border:1px solid var(--blue-b);border-radius:var(--radius);padding:.65rem 1rem">'+
+        '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.4rem">Bulan Ini ('+mLabel+')</div>'+
+        '<div style="font-size:22px;font-weight:700;color:var(--blue);margin-bottom:.2rem">'+(o.pctMonth!==null?o.pctMonth+'%':'-')+'</div>'+
+        '<div style="font-size:11.5px;color:var(--text3)">'+
+        '<span style="color:var(--green)">\u2713 '+o.onTimeMonth+' tepat waktu</span>'+
+        ' &middot; <span style="color:var(--red)">\u26A0 '+o.terlambatMonth+' terlambat</span>'+
+        ' &middot; \u25CB '+o.belumDibuatMonth+' belum dibuat</div>'+
+        '<div style="font-size:10.5px;color:var(--text3);margin-top:2px">dari '+o.totalMonth+' laporan jatuh tempo</div></div>'+
+        '<div style="background:var(--green-bg);border:1px solid var(--green-b);border-radius:var(--radius);padding:.65rem 1rem">'+
+        '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.4rem">Setahun '+now.getFullYear()+'</div>'+
+        '<div style="font-size:22px;font-weight:700;color:var(--green);margin-bottom:.2rem">'+(o.pct!==null?o.pct+'%':'-')+'</div>'+
+        '<div style="font-size:11.5px;color:var(--text3)">'+
+        '<span style="color:var(--green)">\u2713 '+o.onTime+' tepat waktu</span>'+
+        ' &middot; <span style="color:var(--red)">\u26A0 '+o.terlambat+' terlambat</span>'+
+        ' &middot; \u25CB '+o.belumDibuat+' belum dibuat</div>'+
+        '<div style="font-size:10.5px;color:var(--text3);margin-top:2px">dari '+o.total+' laporan jatuh tempo</div></div>'+
+        '</div></div>';
+    })();
   if(CAR_TASK_VIEW==='table'){
     var rows=list.map(function(d){
       var r=res(d);
@@ -1125,7 +1139,7 @@ function renderDash(){
       var custCount=DATA.customers.filter(function(c){return c.car_id===u.id;}).length;
       return '<div style="display:flex;align-items:center;gap:.75rem;padding:.6rem 0;border-bottom:1px solid var(--border)">' +
         '<div class="user-avatar" style="width:32px;height:32px;font-size:11px;flex-shrink:0">'+ini+'</div>'+
-        '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;color:var(--text)">'+esc(u.name)+'</div>'+
+        '<div style="font-size:13px;font-weight:700;color:var(--primary);cursor:pointer" onclick="goPage(\'allreports\');setTimeout(function(){openCarTasks(\''+u.id+'\');},100)">'+esc(u.name)+' →</div>'+
         '<div style="font-size:11px;color:var(--text3);margin-top:1px">'+custCount+' pelanggan &middot; '+mine.length+' laporan</div></div>'+
         '<div style="flex-shrink:0">'+otBadge(mine)+'</div></div>';
     }).join(''):'<div style="padding:1rem;text-align:center;color:var(--text3);font-size:13px">Belum ada CAR terdaftar</div>';
@@ -1140,6 +1154,67 @@ function renderDash(){
         '<div style="font-size:11px;color:var(--text3)">'+cDels.length+' laporan</div></div>'+
         otBadge(cDels)+'</div>';
     }).join(''):'<div style="padding:1rem;text-align:center;color:var(--text3);font-size:13px">Belum ada pelanggan ditugaskan ke Anda.<br>Hubungi Admin.</div>';
+  }
+  // Monthly status widget (admin only)
+  if(adm){
+    var _now=new Date(),_Y=_now.getFullYear(),_M=_now.getMonth();
+    var MN=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    // bulan Mei = laporan dg target_date bulan Mei = laporan April yg harus kirim sblm 10 Mei
+    var tmd=DATA.deliveries.filter(function(d){
+      if(!d.target_date)return false;
+      var t=new Date(d.target_date);
+      return t.getFullYear()===_Y&&t.getMonth()===_M;
+    });
+    var byC={};
+    tmd.forEach(function(d){
+      var c=DATA.customers.find(function(x){return x.id===d.customer_id;});
+      var u2=DATA.users.find(function(x){return x.id===d.car_id;});
+      var r=DATA.rtypes.find(function(x){return x.id===d.report_type_id;});
+      var k=d.customer_id;
+      if(!byC[k])byC[k]={cn:c?c.name:'?',car:u2?u2.name:'?',cid:d.car_id||'',rows:[]};
+      var sent=d.status==='Sudah Dikirim';
+      var onT=sent&&d.delivery_date&&d.target_date&&new Date(d.delivery_date)<=new Date(d.target_date);
+      var sLate=sent&&!onT;
+      byC[k].rows.push({rn:r?r.name:'?',st:d.status,onT:onT,sLate:sLate});
+    });
+    var ks=Object.keys(byC);
+    var dOT=tmd.filter(function(d){return d.status==='Sudah Dikirim'&&d.delivery_date&&d.target_date&&new Date(d.delivery_date)<=new Date(d.target_date);}).length;
+    var dLate=tmd.filter(function(d){return d.status==='Sudah Dikirim'&&(!d.delivery_date||!d.target_date||new Date(d.delivery_date)>new Date(d.target_date));}).length;
+    var blm=tmd.filter(function(d){return d.status!=='Sudah Dikirim';}).length;
+    var pctW=tmd.length?Math.round(dOT/tmd.length*100):0;
+    var prevM=MN[(_M+11)%12],prevY=_M===0?_Y-1:_Y;
+    var tblRows=ks.length?ks.map(function(k){
+      var o=byC[k];
+      var carHtml=o.cid
+        ?('<span style="color:var(--primary);cursor:pointer;font-weight:600;font-size:12px" '+
+          'onclick="goPage(\'allreports\');setTimeout(function(){openCarTasks(\''+o.cid+'\');},100)">'+
+          esc(o.car)+' →</span>')
+        :('<span style="font-size:12px;color:var(--text3)">'+esc(o.car)+'</span>');
+      var repRows=o.rows.map(function(r){
+        var bdg=r.onT
+          ?'<span class="badge badge-green" style="font-size:10.5px">✓ Tepat Waktu</span>'
+          :r.sLate
+          ?'<span class="badge badge-amber" style="font-size:10.5px">⚠ Kirim Terlambat</span>'
+          :r.st==='Sedang Dibuat'
+          ?'<span class="badge badge-blue" style="font-size:10.5px">◉ Sedang Dibuat</span>'
+          :'<span class="badge badge-gray" style="font-size:10.5px">○ Belum Dibuat</span>';
+        return '<div style="display:flex;align-items:center;justify-content:space-between;padding:.25rem 0;border-bottom:1px solid var(--border)">'+
+          '<span style="font-size:12px;color:var(--text2)">'+esc(r.rn)+'</span>'+bdg+'</div>';
+      }).join('');
+      return '<tr><td class="td-bold">'+esc(o.cn)+'</td><td>'+carHtml+'</td>'+
+        '<td><div style="min-width:200px">'+repRows+'</div></td></tr>';
+    }).join('')
+    :'<tr class="empty-row"><td colspan="3">Tidak ada laporan untuk bulan '+MN[_M]+' '+_Y+'</td></tr>';
+    var wEl=gi('dash-monthly-status');
+    if(wEl){
+      gi('dash-monthly-title').textContent='Laporan '+prevM+' '+prevY+' — Target Kirim Bulan '+MN[_M]+' '+_Y;
+      gi('dash-monthly-pct').innerHTML=
+        '<span style="color:var(--green);font-weight:600">✓ '+dOT+' tepat waktu</span> &middot; '+
+        '<span style="color:var(--amber);font-weight:600">⚠ '+dLate+' terlambat kirim</span> &middot; '+
+        '<span style="color:var(--text3)">○ '+blm+' belum dibuat</span>'+
+        ' &nbsp;|&nbsp; <span style="color:var(--primary);font-weight:700">'+pctW+'% On Time</span>';
+      gi('dash-monthly-tbl').innerHTML=tblRows;
+    }
   }
   updateBadge();
 }
@@ -1165,14 +1240,35 @@ function renderMyReports(){
   // On Track banner
   var ot=calcOnTrack(myDeliveries());
   gi('my-ontrack-banner').innerHTML=
-    '<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:.9rem 1.25rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem">'+
-    '<div style="display:flex;align-items:center;gap:.75rem">'+
-    '<div style="font-size:13px;font-weight:600;color:var(--text)">Status Kinerja Anda</div>'+
-    '<span class="ot-badge '+ot.cls+'"><span class="ot-dot"></span>'+ot.label+' &mdash; '+ot.pct+'% tepat waktu</span></div>'+
-    '<div style="display:flex;gap:.75rem;font-size:12px;color:var(--text3)">'+
-    '<span>\u2713 '+ot.onTime+' tepat waktu</span>'+
-    '<span>\u25CB '+(ot.total-ot.onTime-ot.pending)+' terlambat</span>'+
-    '<span>\u25C9 '+ot.pending+' dalam proses</span></div></div>';
+    (function(){
+      var o=calcOnTrack(myDeliveries());
+      var now=new Date();
+      var mnm=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+      var mLabel=mnm[now.getMonth()]+' '+now.getFullYear();
+      if(o.label==='Belum Ada Data')return '<div class="alert alert-info">Belum ada data laporan.</div>';
+      return '<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem">'+
+        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.75rem">'+
+        '<div style="font-size:13px;font-weight:700;color:var(--text)">Kinerja Saya</div>'+
+        '<span class="ot-badge '+o.cls+'"><span class="ot-dot"></span>'+o.label+'</span></div>'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">'+
+        '<div style="background:var(--blue-bg);border:1px solid var(--blue-b);border-radius:var(--radius);padding:.65rem 1rem">'+
+        '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.4rem">Bulan Ini ('+mLabel+')</div>'+
+        '<div style="font-size:22px;font-weight:700;color:var(--blue);margin-bottom:.2rem">'+(o.pctMonth!==null?o.pctMonth+'%':'-')+'</div>'+
+        '<div style="font-size:11.5px;color:var(--text3)">'+
+        '<span style="color:var(--green)">\u2713 '+o.onTimeMonth+' tepat waktu</span>'+
+        ' &middot; <span style="color:var(--red)">\u26A0 '+o.terlambatMonth+' terlambat</span>'+
+        ' &middot; \u25CB '+o.belumDibuatMonth+' belum dibuat</div>'+
+        '<div style="font-size:10.5px;color:var(--text3);margin-top:2px">dari '+o.totalMonth+' laporan jatuh tempo</div></div>'+
+        '<div style="background:var(--green-bg);border:1px solid var(--green-b);border-radius:var(--radius);padding:.65rem 1rem">'+
+        '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.4rem">Setahun '+now.getFullYear()+'</div>'+
+        '<div style="font-size:22px;font-weight:700;color:var(--green);margin-bottom:.2rem">'+(o.pct!==null?o.pct+'%':'-')+'</div>'+
+        '<div style="font-size:11.5px;color:var(--text3)">'+
+        '<span style="color:var(--green)">\u2713 '+o.onTime+' tepat waktu</span>'+
+        ' &middot; <span style="color:var(--red)">\u26A0 '+o.terlambat+' terlambat</span>'+
+        ' &middot; \u25CB '+o.belumDibuat+' belum dibuat</div>'+
+        '<div style="font-size:10.5px;color:var(--text3);margin-top:2px">dari '+o.total+' laporan jatuh tempo</div></div>'+
+        '</div></div>';
+    })();
 
   if(MY_VIEW==='table'){
     var rows=list.map(function(d){
